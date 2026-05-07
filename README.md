@@ -3,7 +3,7 @@
 Static GitHub Pages hub for classroom Python visualizations.
 
 Public page:
-https://artegas.github.io/python-symbol-square-visualizer/
+https://artegas.github.io/python-algorithm-visualizations/
 
 ## Structure
 
