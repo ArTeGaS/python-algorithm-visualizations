@@ -58,8 +58,8 @@
     .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
     .stage { padding: 14px 18px; }
     #message {
-      min-height: 76px;
-      height: 76px;
+      min-height: 92px;
+      height: 92px;
       overflow: hidden;
       display: flex;
       align-items: center;
@@ -70,7 +70,9 @@
       font-size: 19px;
       line-height: 1.28;
     }
+    .message-text { display: block; width: 100%; }
     #message strong, .blue { color: var(--blue); font-weight: 900; }
+    .msg-code { color: var(--blue); font: 900 18px/1.25 var(--mono); white-space: nowrap; }
     .stage-grid { display: grid; grid-template-columns: minmax(430px, .92fr) minmax(380px, 1.08fr); gap: 14px; margin-top: 14px; align-items: start; }
     .table-card, .viz-card, .concept-panel { border: 1px solid var(--line); border-radius: 7px; background: var(--soft); overflow: hidden; }
     .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
@@ -187,7 +189,7 @@
       .app { padding: 12px; }
       header { grid-template-columns: 1fr; }
       .toolbar { justify-content: flex-start; }
-      #message { height: 96px; min-height: 96px; font-size: 17px; }
+      #message { height: 108px; min-height: 108px; font-size: 17px; }
       .stage { padding: 10px; }
       .status-row, .concept-grid, .pair-grid { grid-template-columns: 1fr; }
       .control-grid { grid-template-columns: 1fr; }
@@ -746,7 +748,7 @@
         phase: "set",
         activeBadge: "middle",
         line: 38,
-        message: `Починається <strong>3.2b</strong>. Робимо <strong>point_set = set(points)</strong>, щоб швидко перевіряти, чи існує потрібна середина серед точок маршруту.`
+        message: `Починається <span class="msg-code">3.2b</span>. Робимо <span class="msg-code">point_set = set(points)</span>, щоб швидко перевіряти, чи потрібна середина існує серед точок маршруту.`
       });
 
       push({
@@ -1073,7 +1075,7 @@
     }
 
     function renderMessage(event) {
-      dom.message.innerHTML = event.message;
+      dom.message.innerHTML = `<span class="message-text">${event.message}</span>`;
     }
 
     function renderPhases(event) {
