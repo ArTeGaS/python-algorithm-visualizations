@@ -71,13 +71,13 @@
       line-height: 1.28;
     }
     #message strong, .blue { color: var(--blue); font-weight: 900; }
-    .stage-grid { display: grid; grid-template-columns: minmax(430px, 1.05fr) minmax(360px, .95fr); gap: 14px; margin-top: 14px; align-items: start; }
+    .stage-grid { display: grid; grid-template-columns: minmax(430px, .92fr) minmax(380px, 1.08fr); gap: 14px; margin-top: 14px; align-items: start; }
     .table-card, .viz-card, .concept-panel { border: 1px solid var(--line); border-radius: 7px; background: var(--soft); overflow: hidden; }
     .section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
     h2 { margin: 0; font-size: 22px; line-height: 1.1; }
     h3 { margin: 0; font-size: 18px; line-height: 1.15; }
     .mini-note { color: var(--muted); font-weight: 800; font-size: 13px; line-height: 1.2; }
-    .table-wrap { max-height: 400px; overflow: auto; }
+    .table-wrap { max-height: 340px; overflow: auto; }
     table { width: 100%; border-collapse: collapse; font: 800 14px/1.25 var(--mono); }
     th, td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: right; white-space: nowrap; }
     th:first-child, td:first-child { text-align: left; color: var(--muted); font-family: var(--sans); }
@@ -113,9 +113,10 @@
       font: 900 16px/1.38 var(--mono);
       color: var(--blue);
     }
-    .map-card { margin-top: 10px; border: 1px solid var(--line); border-radius: 7px; background: #fff; overflow: hidden; }
+    .map-card { border: 1px solid var(--line); border-radius: 7px; background: #fff; overflow: hidden; }
+    .map-wide { grid-column: 1 / -1; }
     .map-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; font-weight: 900; }
-    #mapSvg { display: block; width: 100%; height: 270px; background: #ffffff; }
+    #mapSvg { display: block; width: 100%; height: 330px; background: #ffffff; }
     .pair-panel { margin-top: 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--soft); padding: 10px 12px; }
     .pair-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
     .pair-box { border: 1px solid var(--line); border-radius: 7px; background: #fff; padding: 8px 9px; }
@@ -174,6 +175,7 @@
     @media (max-width: 1180px) {
       .layout { grid-template-columns: 1fr; }
       .stage-grid { grid-template-columns: 1fr; }
+      .map-wide { grid-column: auto; }
       .phase-control-grid { grid-template-columns: 1fr; }
       .control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
@@ -271,14 +273,6 @@
 
             <div class="formula" id="formulaBox">points вже побудовано: кожна точка - це нове (x, y) після руху дрона.</div>
 
-            <div class="map-card">
-              <div class="map-meta">
-                <span id="mapTitle">Карта маршруту</span>
-                <span id="mapMeta">0 точок</span>
-              </div>
-              <svg id="mapSvg" viewBox="0 0 620 270" role="img" aria-label="Карта точок маршруту"></svg>
-            </div>
-
             <div class="pair-panel" data-section="part-b">
               <h3>Поточна перевірка середини</h3>
               <div class="pair-grid">
@@ -296,13 +290,21 @@
                 </div>
               </div>
             </div>
+          </div>
 
-            <div class="legend">
-              <span class="key"><span class="swatch square"></span> квадрат 0..5000</span>
-              <span class="key"><span class="swatch point"></span> поточна точка</span>
-              <span class="key"><span class="swatch pair"></span> p1 / p2</span>
-              <span class="key"><span class="swatch middle"></span> середина знайдена в points</span>
+          <div class="map-card map-wide">
+            <div class="map-meta">
+              <span id="mapTitle">Карта маршруту</span>
+              <span id="mapMeta">0 точок</span>
             </div>
+            <svg id="mapSvg" viewBox="0 0 980 330" role="img" aria-label="Карта точок маршруту"></svg>
+          </div>
+
+          <div class="legend map-wide">
+            <span class="key" data-section="part-a"><span class="swatch square"></span> квадрат 0..5000</span>
+            <span class="key"><span class="swatch point"></span> поточна точка</span>
+            <span class="key" data-section="part-b"><span class="swatch pair"></span> p1 / p2</span>
+            <span class="key" data-section="part-b"><span class="swatch middle"></span> середина знайдена в points</span>
           </div>
         </div>
 
@@ -1195,31 +1197,20 @@
     }
 
     function renderInsideMap(event) {
-      const width = 620;
-      const height = 270;
-      const pad = 32;
+      const width = 980;
+      const height = 330;
+      const pad = 42;
+      const plotHeight = 282;
       const points = event.points;
-      const square = [{ x: 0, y: 0 }, { x: 5000, y: 5000 }];
-      const all = [...points, ...square];
-      let minX = Math.min(...all.map(p => p.x));
-      let maxX = Math.max(...all.map(p => p.x));
-      let minY = Math.min(...all.map(p => p.y));
-      let maxY = Math.max(...all.map(p => p.y));
-      const dx = Math.max(1, maxX - minX);
-      const dy = Math.max(1, maxY - minY);
-      minX -= dx * .08;
-      maxX += dx * .08;
-      minY -= dy * .08;
-      maxY += dy * .08;
-      const scaleX = (width - pad * 2) / (maxX - minX);
-      const scaleY = (height - pad * 2) / (maxY - minY);
-      const scale = Math.min(scaleX, scaleY);
-      const drawW = (maxX - minX) * scale;
-      const drawH = (maxY - minY) * scale;
-      const offX = (width - drawW) / 2;
-      const offY = (height - drawH) / 2;
-      const sx = x => offX + (x - minX) * scale;
-      const sy = y => height - offY - (y - minY) * scale;
+      const minX = -350;
+      const maxX = 5350;
+      const minY = -350;
+      const maxY = 5350;
+      const sx = x => pad + (x - minX) * (width - pad * 2) / (maxX - minX);
+      const sy = y => plotHeight - pad - (y - minY) * (plotHeight - pad * 2) / (maxY - minY);
+      const inFrame = point => point && point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY;
+      const clampX = x => Math.min(Math.max(x, minX), maxX);
+      const clampY = y => Math.min(Math.max(y, minY), maxY);
       const route = points.map(p => `${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ");
       const squareX = sx(0);
       const squareY = sy(5000);
@@ -1244,68 +1235,95 @@
         return `<circle cx="${sx(point.x).toFixed(1)}" cy="${sy(point.y).toFixed(1)}" r="${radius}" fill="${fill}" stroke="${stroke}" stroke-width="1.4" opacity="${opacity}" />`;
       }).join("");
 
+      const activeDraw = active ? { x: clampX(active.x), y: clampY(active.y), clipped: !inFrame(active) } : null;
       const projection = active ? `
-        <line x1="${sx(active.x).toFixed(1)}" y1="${sy(active.y).toFixed(1)}" x2="${sx(active.x).toFixed(1)}" y2="${sy(0).toFixed(1)}" stroke="#2563eb" stroke-width="1.8" stroke-dasharray="5 4" />
-        <line x1="${sx(0).toFixed(1)}" y1="${sy(active.y).toFixed(1)}" x2="${sx(active.x).toFixed(1)}" y2="${sy(active.y).toFixed(1)}" stroke="#2563eb" stroke-width="1.8" stroke-dasharray="5 4" />
-        <text x="${sx(active.x) + 10}" y="${Math.max(sy(active.y) - 10, 18)}" fill="#1e40af" font-family="Consolas, monospace" font-size="13" font-weight="900">#${active.index + 1}</text>
+        <line x1="${sx(activeDraw.x).toFixed(1)}" y1="${sy(activeDraw.y).toFixed(1)}" x2="${sx(activeDraw.x).toFixed(1)}" y2="${sy(0).toFixed(1)}" stroke="#2563eb" stroke-width="1.8" stroke-dasharray="5 4" />
+        <line x1="${sx(0).toFixed(1)}" y1="${sy(activeDraw.y).toFixed(1)}" x2="${sx(activeDraw.x).toFixed(1)}" y2="${sy(activeDraw.y).toFixed(1)}" stroke="#2563eb" stroke-width="1.8" stroke-dasharray="5 4" />
+        <circle cx="${sx(activeDraw.x).toFixed(1)}" cy="${sy(activeDraw.y).toFixed(1)}" r="${activeDraw.clipped ? 10 : 8}" fill="${activeDraw.clipped ? "#fee2e2" : "#2563eb"}" stroke="${activeDraw.clipped ? "#dc2626" : "#1e40af"}" stroke-width="2.4" />
+        <text x="${Math.min(sx(activeDraw.x) + 12, width - 110)}" y="${Math.max(sy(activeDraw.y) - 12, 20)}" fill="${activeDraw.clipped ? "#991b1b" : "#1e40af"}" font-family="Consolas, monospace" font-size="13" font-weight="900">#${active.index + 1}${activeDraw.clipped ? " поза фокусом" : ""}</text>
       ` : "";
 
+      const grid = [0, 2500, 5000].map(value => `
+        <line x1="${sx(value).toFixed(1)}" y1="${sy(0).toFixed(1)}" x2="${sx(value).toFixed(1)}" y2="${sy(5000).toFixed(1)}" stroke="#e2e8f0" stroke-width="1" />
+        <line x1="${sx(0).toFixed(1)}" y1="${sy(value).toFixed(1)}" x2="${sx(5000).toFixed(1)}" y2="${sy(value).toFixed(1)}" stroke="#e2e8f0" stroke-width="1" />
+      `).join("");
+      const visibleCount = points.filter(inFrame).length;
+      const xStatus = active ? `x=${active.x}: ${0 < active.x && active.x < 5000 ? "всередині" : "поза"}` : "x: підсумок";
+      const yStatus = active ? `y=${active.y}: ${0 < active.y && active.y < 5000 ? "всередині" : "поза"}` : "y: підсумок";
+      const insideStatus = active ? `inside? ${active.inside ? "так" : "ні"}` : `inside = ${event.inside}`;
+
       dom.mapSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-      dom.mapSvg.style.height = "270px";
+      dom.mapSvg.style.height = "330px";
       dom.mapSvg.innerHTML = `
         <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
+        <rect x="0" y="${plotHeight}" width="${width}" height="${height - plotHeight}" fill="#f8fafc" stroke="#d5dce8" />
         <rect x="${squareX.toFixed(1)}" y="${squareY.toFixed(1)}" width="${squareW.toFixed(1)}" height="${squareH.toFixed(1)}" fill="rgba(34,197,94,.12)" stroke="#16a34a" stroke-width="2" />
-        <line x1="${sx(0).toFixed(1)}" y1="${sy(0).toFixed(1)}" x2="${sx(5000).toFixed(1)}" y2="${sy(0).toFixed(1)}" stroke="#cbd5e1" stroke-width="1" />
-        <line x1="${sx(0).toFixed(1)}" y1="${sy(0).toFixed(1)}" x2="${sx(0).toFixed(1)}" y2="${sy(5000).toFixed(1)}" stroke="#cbd5e1" stroke-width="1" />
-        <polyline points="${route}" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity=".45" />
+        ${grid}
+        <polyline points="${route}" fill="none" stroke="#334155" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity=".42" />
         ${projection}
         ${dots}
-        <text x="${squareX + 8}" y="${squareY + 18}" fill="#166534" font-family="Arial, sans-serif" font-size="13" font-weight="900">0..5000</text>
+        <text x="${squareX + 10}" y="${squareY + 20}" fill="#166534" font-family="Arial, sans-serif" font-size="14" font-weight="900">строго всередині 0..5000</text>
+        <text x="${sx(0).toFixed(1)}" y="${sy(0) + 18}" fill="#64748b" font-family="Consolas, monospace" font-size="12" font-weight="900">0</text>
+        <text x="${sx(5000) - 38}" y="${sy(0) + 18}" fill="#64748b" font-family="Consolas, monospace" font-size="12" font-weight="900">5000</text>
+        <text x="16" y="${plotHeight + 20}" fill="#111827" font-family="Arial, sans-serif" font-size="14" font-weight="900">${html(xStatus)}</text>
+        <text x="330" y="${plotHeight + 20}" fill="#111827" font-family="Arial, sans-serif" font-size="14" font-weight="900">${html(yStatus)}</text>
+        <text x="650" y="${plotHeight + 20}" fill="${active && !active.inside ? "#991b1b" : "#166534"}" font-family="Arial, sans-serif" font-size="14" font-weight="900">${html(insideStatus)}</text>
+        <text x="16" y="${plotHeight + 39}" fill="#64748b" font-family="Arial, sans-serif" font-size="12" font-weight="800">Карта навмисно сфокусована на квадраті; далекий хвіст маршруту не стискає пояснення.</text>
       `;
-      dom.mapMeta.textContent = `перевірено: ${Math.max(0, processedIndex + 1)} / ${event.points.length}, inside: ${event.inside}`;
-      dom.mapTitle.textContent = "Карта маршруту і точки в квадраті";
+      dom.mapMeta.textContent = `фокус: 0..5000, видимих точок: ${visibleCount} / ${event.points.length}, inside: ${event.inside}`;
+      dom.mapTitle.textContent = "Карта 3.2a: квадрат і точки біля нього";
     }
 
     function renderMidpointMap(event) {
-      const width = 620;
-      const height = 270;
-      const pad = 32;
+      const width = 980;
+      const height = 340;
+      const pad = 42;
+      const plotHeight = 284;
       const points = event.points;
-      const square = [{ x: 0, y: 0 }, { x: 5000, y: 5000 }];
-      const all = [...points, ...square];
-      let minX = Math.min(...all.map(p => p.x));
-      let maxX = Math.max(...all.map(p => p.x));
-      let minY = Math.min(...all.map(p => p.y));
-      let maxY = Math.max(...all.map(p => p.y));
-      const dx = Math.max(1, maxX - minX);
-      const dy = Math.max(1, maxY - minY);
-      minX -= dx * .08;
-      maxX += dx * .08;
-      minY -= dy * .08;
-      maxY += dy * .08;
-      const scaleX = (width - pad * 2) / (maxX - minX);
-      const scaleY = (height - pad * 2) / (maxY - minY);
-      const scale = Math.min(scaleX, scaleY);
-      const drawW = (maxX - minX) * scale;
-      const drawH = (maxY - minY) * scale;
-      const offX = (width - drawW) / 2;
-      const offY = (height - drawH) / 2;
-      const sx = x => offX + (x - minX) * scale;
-      const sy = y => height - offY - (y - minY) * scale;
-      const route = points.map(p => `${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ");
-      const squareX = sx(0);
-      const squareY = sy(5000);
-      const squareW = sx(5000) - sx(0);
-      const squareH = sy(0) - sy(5000);
       const p1 = event.p1 || (event.answer ? event.answer.p1 : null);
       const p2 = event.p2 || (event.answer ? event.answer.p2 : null);
       const middle = event.middle || (event.answer ? event.answer.middle : null);
       const middleExists = middle ? event.pointSet.has(keyOf(middle)) : false;
       const hasPair = !!(p1 && p2);
+      const startIndex = hasPair ? Math.max(0, Math.min(p1.index, p2.index) - 6) : 0;
+      const endIndex = hasPair ? Math.min(points.length - 1, Math.max(p1.index, p2.index) + 6) : points.length - 1;
+      const contextPoints = points.slice(startIndex, endIndex + 1);
+      const all = [...contextPoints, ...(p1 ? [p1] : []), ...(p2 ? [p2] : []), ...(middle ? [middle] : [])];
+      let minX = Math.min(...all.map(p => p.x));
+      let maxX = Math.max(...all.map(p => p.x));
+      let minY = Math.min(...all.map(p => p.y));
+      let maxY = Math.max(...all.map(p => p.y));
+      const minSpan = hasPair ? 900 : 1;
+      if (maxX - minX < minSpan) {
+        const mid = (minX + maxX) / 2;
+        minX = mid - minSpan / 2;
+        maxX = mid + minSpan / 2;
+      }
+      if (maxY - minY < minSpan) {
+        const mid = (minY + maxY) / 2;
+        minY = mid - minSpan / 2;
+        maxY = mid + minSpan / 2;
+      }
+      const dx = Math.max(1, maxX - minX);
+      const dy = Math.max(1, maxY - minY);
+      minX -= dx * .14;
+      maxX += dx * .14;
+      minY -= dy * .18;
+      maxY += dy * .18;
+      const scaleX = (width - pad * 2) / (maxX - minX);
+      const scaleY = (plotHeight - pad * 2) / (maxY - minY);
+      const scale = Math.min(scaleX, scaleY);
+      const drawW = (maxX - minX) * scale;
+      const drawH = (maxY - minY) * scale;
+      const offX = (width - drawW) / 2;
+      const offY = (plotHeight - drawH) / 2;
+      const sx = x => offX + (x - minX) * scale;
+      const sy = y => plotHeight - offY - (y - minY) * scale;
+      const route = contextPoints.map(p => `${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ");
 
-      const circles = points.map(point => {
-        let fill = point.inside ? "#16a34a" : "#94a3b8";
-        let radius = point.inside ? 4.6 : 3.4;
+      const circles = contextPoints.map(point => {
+        let fill = "#94a3b8";
+        let radius = hasPair ? 4 : 3.2;
         let stroke = "#ffffff";
         let strokeWidth = 1.4;
         if (p1 && p1.index === point.index) { fill = "#7c3aed"; radius = 7; stroke = "#4c1d95"; strokeWidth = 2; }
@@ -1316,28 +1334,41 @@
 
       let helper = "";
       if (p1 && p2) {
-        helper += `<line x1="${sx(p1.x).toFixed(1)}" y1="${sy(p1.y).toFixed(1)}" x2="${sx(p2.x).toFixed(1)}" y2="${sy(p2.y).toFixed(1)}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="6 5" />`;
+        helper += `<line x1="${sx(p1.x).toFixed(1)}" y1="${sy(p1.y).toFixed(1)}" x2="${sx(p2.x).toFixed(1)}" y2="${sy(p2.y).toFixed(1)}" stroke="#7c3aed" stroke-width="2" stroke-dasharray="7 5" opacity=".55" />`;
       }
       if (middle) {
-        helper += `<circle cx="${sx(middle.x).toFixed(1)}" cy="${sy(middle.y).toFixed(1)}" r="10" fill="none" stroke="${middleExists ? "#16a34a" : "#dc2626"}" stroke-width="2.5" />`;
+        if (p1) helper += `<line x1="${sx(p1.x).toFixed(1)}" y1="${sy(p1.y).toFixed(1)}" x2="${sx(middle.x).toFixed(1)}" y2="${sy(middle.y).toFixed(1)}" stroke="#7c3aed" stroke-width="3.4" />`;
+        if (p2) helper += `<line x1="${sx(middle.x).toFixed(1)}" y1="${sy(middle.y).toFixed(1)}" x2="${sx(p2.x).toFixed(1)}" y2="${sy(p2.y).toFixed(1)}" stroke="#f59e0b" stroke-width="3.4" />`;
+        helper += `<circle cx="${sx(middle.x).toFixed(1)}" cy="${sy(middle.y).toFixed(1)}" r="12" fill="none" stroke="${middleExists ? "#16a34a" : "#dc2626"}" stroke-width="3" />`;
       }
 
+      const labels = [
+        p1 ? pointDot("p1", p1, "#ede9fe", "#7c3aed", sx, sy) : "",
+        p2 ? pointDot("p2", p2, "#fef3c7", "#f59e0b", sx, sy) : "",
+        middle ? pointDot("mid", middle, middleExists ? "#dcfce7" : "#fee2e2", middleExists ? "#16a34a" : "#dc2626", sx, sy, true) : ""
+      ].join("");
+      const sxText = event.sx === null ? "sx=?" : `sx=${event.sx} (${event.sx % 2 === 0 ? "парна" : "непарна"})`;
+      const syText = event.sy === null ? "sy=?" : `sy=${event.sy} (${event.sy % 2 === 0 ? "парна" : "непарна"})`;
+      const memberText = middle ? `middle in point_set: ${middleExists ? "так" : "ні"}` : `point_set: ${event.pointSet.size} точок`;
+
       dom.mapSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-      dom.mapSvg.style.height = "270px";
+      dom.mapSvg.style.height = "340px";
       dom.mapSvg.innerHTML = `
         <rect x="0" y="0" width="${width}" height="${height}" fill="#ffffff" />
-        <rect x="${squareX.toFixed(1)}" y="${squareY.toFixed(1)}" width="${squareW.toFixed(1)}" height="${squareH.toFixed(1)}" fill="rgba(34,197,94,.12)" stroke="#16a34a" stroke-width="2" />
-        <line x1="${sx(0).toFixed(1)}" y1="${sy(0).toFixed(1)}" x2="${sx(5000).toFixed(1)}" y2="${sy(0).toFixed(1)}" stroke="#cbd5e1" stroke-width="1" />
-        <line x1="${sx(0).toFixed(1)}" y1="${sy(0).toFixed(1)}" x2="${sx(0).toFixed(1)}" y2="${sy(5000).toFixed(1)}" stroke="#cbd5e1" stroke-width="1" />
-        <polyline points="${route}" fill="none" stroke="#334155" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" opacity=".45" />
+        <rect x="0" y="${plotHeight}" width="${width}" height="${height - plotHeight}" fill="#f8fafc" stroke="#d5dce8" />
+        <polyline points="${route}" fill="none" stroke="#334155" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" opacity=".35" />
         ${helper}
         ${circles}
-        <text x="${squareX + 8}" y="${squareY + 18}" fill="#166534" font-family="Arial, sans-serif" font-size="13" font-weight="900">0..5000</text>
+        ${labels}
+        <text x="16" y="${plotHeight + 20}" fill="#111827" font-family="Arial, sans-serif" font-size="14" font-weight="900">${html(sxText)}</text>
+        <text x="330" y="${plotHeight + 20}" fill="#111827" font-family="Arial, sans-serif" font-size="14" font-weight="900">${html(syText)}</text>
+        <text x="650" y="${plotHeight + 20}" fill="${middle && !middleExists ? "#991b1b" : "#166534"}" font-family="Arial, sans-serif" font-size="14" font-weight="900">${html(memberText)}</text>
+        <text x="16" y="${plotHeight + 41}" fill="#64748b" font-family="Arial, sans-serif" font-size="12" font-weight="800">Це вже задача про пари й середину; квадрат із 3.2a тут навмисно не показуємо.</text>
       `;
       dom.mapMeta.textContent = hasPair
-        ? `p1 ${fmtPoint(p1)}, p2 ${fmtPoint(p2)}, middle ${middle ? fmtPoint(middle) : "?"}`
-        : `point_set: ${event.pointSet.size} унікальних точок`;
-      dom.mapTitle.textContent = "Карта маршруту і пари точок";
+        ? `контекст точок #${startIndex + 1}..#${endIndex + 1}; p1 ${fmtPoint(p1)}, p2 ${fmtPoint(p2)}, middle ${middle ? fmtPoint(middle) : "?"}`
+        : `огляд маршруту; point_set: ${event.pointSet.size} унікальних точок`;
+      dom.mapTitle.textContent = "Карта 3.2b: пара і її середина";
     }
 
     function pointDot(label, point, fill, stroke, sx, sy, ring = false) {
