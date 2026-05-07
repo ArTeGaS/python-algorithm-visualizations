@@ -1312,19 +1312,14 @@
       }
       const dx = Math.max(1, maxX - minX);
       const dy = Math.max(1, maxY - minY);
-      minX -= dx * .14;
-      maxX += dx * .14;
+      minX -= dx * .06;
+      maxX += dx * .06;
       minY -= dy * .18;
       maxY += dy * .18;
       const scaleX = (width - pad * 2) / (maxX - minX);
       const scaleY = (plotHeight - pad * 2) / (maxY - minY);
-      const scale = Math.min(scaleX, scaleY);
-      const drawW = (maxX - minX) * scale;
-      const drawH = (maxY - minY) * scale;
-      const offX = (width - drawW) / 2;
-      const offY = (plotHeight - drawH) / 2;
-      const sx = x => offX + (x - minX) * scale;
-      const sy = y => plotHeight - offY - (y - minY) * scale;
+      const sx = x => pad + (x - minX) * scaleX;
+      const sy = y => plotHeight - pad - (y - minY) * scaleY;
       const route = contextPoints.map(p => `${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(" ");
 
       const circles = contextPoints.map(point => {
