@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3.0 Екстракція маршруту дрона</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --ink: #111827;
+      --muted: #5b6472;
+      --line: #d5dce8;
+      --line-strong: #9aa8bd;
+      --blue: #2563eb;
+      --blue-soft: #dbeafe;
+      --green: #16a34a;
+      --green-soft: #dcfce7;
+      --yellow: #f59e0b;
+      --yellow-soft: #fef3c7;
+      --red: #dc2626;
+      --red-soft: #fee2e2;
+      --purple: #7c3aed;
+      --purple-soft: #ede9fe;
+      --shadow: 0 16px 38px rgba(15, 23, 42, .10);
+      --radius: 8px;
+      --mono: Consolas, "Courier New", monospace;
+      --sans: Arial, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+    .app { max-width: 1540px; margin: 0 auto; padding: 14px 20px 16px; }
+    header { display: grid; grid-template-columns: minmax(420px, 1fr) auto; gap: 16px; align-items: start; margin-bottom: 10px; }
+    h1 { margin: 0 0 3px; font-size: 27px; line-height: 1.05; letter-spacing: 0; }
+    .subtitle { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.32; max-width: 940px; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+    button, select, .file-label, .home-link { height: 38px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); color: var(--ink); font: 700 14px var(--sans); padding: 0 12px; cursor: pointer; }
+    button, .file-label, .home-link { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+    .home-link { text-decoration: none; border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+    .manual-import { height: 32px; border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; font-size: 13px; padding: 0 10px; }
+    button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    button.good { background: var(--green); border-color: var(--green); color: #fff; }
+    button.warn { background: var(--yellow-soft); border-color: #f3bf45; }
+    button.back { background: #fde68a; border-color: #d97706; color: #111827; }
+    button:disabled { opacity: .45; cursor: default; }
+    input[type="file"] { display: none; }
+
+    .layout { display: grid; grid-template-columns: minmax(760px, 1fr) minmax(430px, 560px); gap: 16px; align-items: start; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .stage { padding: 14px; }
+    .message { height: 86px; border-radius: 7px; border: 1px solid var(--line); background: #fbfdff; padding: 9px 12px; font-size: 16px; line-height: 1.32; margin-bottom: 10px; overflow: auto; }
+    .message b { color: var(--blue); }
+    .message .good-text { color: var(--green); font-weight: 800; }
+    .message .bad { color: var(--red); font-weight: 800; }
+    .stage-grid { display: grid; grid-template-columns: minmax(280px, 360px) minmax(360px, 1fr); gap: 12px; align-items: start; }
+    .data-stack { display: grid; gap: 10px; min-width: 0; }
+    .data-card { border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; overflow: hidden; }
+    .data-card h2 { margin: 0; padding: 8px 10px; font-size: 16px; line-height: 1.1; border-bottom: 1px solid var(--line); background: #f8fafc; }
+    .table-wrap { max-height: 205px; overflow: auto; }
+    .mini-table { width: 100%; border-collapse: collapse; font: 13px/1.25 var(--mono); }
+    .mini-table th, .mini-table td { border-bottom: 1px solid var(--line); padding: 5px 7px; text-align: left; white-space: nowrap; }
+    .mini-table th { position: sticky; top: 0; z-index: 2; background: #f8fafc; color: var(--muted); font: 800 12px var(--sans); }
+    .mini-table tr.active td { background: var(--blue-soft); box-shadow: inset 0 0 0 999px rgba(37, 99, 235, .03); }
+    .mini-table tr.appended td { background: var(--green-soft); }
+    .mini-table .num { color: var(--muted); font-family: var(--sans); font-weight: 800; }
+    .main-viz { display: grid; gap: 10px; min-width: 0; }
+    .status-row { display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 7px; }
+    .badge { min-height: 62px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; }
+    .badge.active { border-color: var(--blue); background: var(--blue-soft); box-shadow: inset 0 0 0 2px rgba(37,99,235,.18); }
+    .badge strong { display: block; color: var(--muted); font-size: 11px; line-height: 1.05; margin: 0 0 4px; }
+    .badge span { display: block; font-family: var(--mono); font-size: 17px; font-weight: 800; line-height: 1.12; white-space: normal; overflow-wrap: anywhere; }
+    .badge small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.05; }
+    .formula { border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; padding: 10px 12px; min-height: 74px; font-size: 16px; line-height: 1.32; }
+    .formula code { font: 800 15px var(--mono); color: var(--blue); }
+    .map-card { border: 1px solid var(--line); border-radius: 7px; background: #fff; overflow: hidden; }
+    .map-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; padding: 8px 10px; border-bottom: 1px solid var(--line); background: #f8fafc; }
+    .map-head h2 { margin: 0; font-size: 16px; line-height: 1.1; }
+    .map-head span { color: var(--muted); font-size: 12px; font-weight: 800; }
+    .map-wrap { height: 330px; padding: 8px; }
+    .map-wrap svg { display: block; width: 100%; height: 100%; }
+    .legend { display: grid; grid-template-columns: repeat(4, auto); gap: 7px 12px; margin-top: 8px; color: var(--muted); font-size: 13px; align-items: center; }
+    .swatch { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--line-strong); display: inline-block; vertical-align: middle; margin-right: 5px; }
+    .swatch.blue { background: var(--blue-soft); }
+    .swatch.green { background: var(--green-soft); }
+    .swatch.yellow { background: var(--yellow-soft); }
+    .swatch.purple { background: var(--purple-soft); }
+    .side { display: grid; gap: 10px; }
+    .card { padding: 10px; }
+    .card h2 { margin: 0 0 8px; font-size: 19px; line-height: 1.1; }
+    .loop-panel-grid { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 10px; align-items: start; }
+    .control-column h2 { margin-bottom: 6px; }
+    .control-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+    .control-bar button { height: 29px; padding: 0 6px; width: 100%; font-size: 13px; }
+    .phase-stack { display: grid; gap: 7px; }
+    .phase-card { border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px; background: #fbfdff; }
+    .phase-card.active { border-color: var(--blue); box-shadow: inset 0 0 0 2px rgba(37,99,235,.18); }
+    .phase-card.accumulate { background: #fffaf0; }
+    .phase-card strong { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+    .phase-card code { font: 800 15px var(--mono); }
+    .code { margin: 0; background: #0f172a; color: #dbeafe; border-radius: 7px; padding: 8px 0; overflow: auto; max-height: 430px; font: 14px/1.32 var(--mono); }
+    .code-line { display: grid; grid-template-columns: 30px 1fr; gap: 7px; padding: 1px 10px; white-space: pre; }
+    .code-line .num { color: #64748b; text-align: right; }
+    .code-line.active { background: rgba(37, 99, 235, .32); color: #fff; }
+    .code-line.dim { color: #8ea5c8; }
+    .concept-note { display: grid; gap: 8px; color: var(--muted); font-size: 15px; line-height: 1.35; }
+    .concept-note b { color: var(--ink); }
+    .concept-note code { color: var(--blue); font: 800 14px var(--mono); }
+    .progress { height: 10px; border-radius: 999px; background: #e5e7eb; overflow: hidden; margin-top: 8px; }
+    .progress > div { height: 100%; background: linear-gradient(90deg, var(--blue), var(--green)); width: 0; }
+    .step-info { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+
+    @media (max-width: 1180px) {
+      header, .layout, .stage-grid { grid-template-columns: 1fr; }
+      .toolbar { justify-content: flex-start; }
+      .status-row { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+      .loop-panel-grid { grid-template-columns: 1fr; }
+      .control-bar { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+    }
+
+    @media (max-width: 620px) {
+      .app { padding: 12px; }
+      .status-row, .control-bar, .legend { grid-template-columns: 1fr; }
+      .map-wrap { height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>3.0 Екстракція маршруту дрона</h1>
+        <p class="subtitle">Показуємо базовий крок для всього завдання 3: файл дає рухи <b>[A, B]</b>, а скрипт перетворює їх на накопичені точки <b>(x, y)</b>. Рух і точка — це різні речі.</p>
+      </div>
+      <div class="toolbar">
+        <a class="home-link" href="../../index.html">&larr; До списку</a>
+        <select id="datasetSelect" aria-label="Вбудований набір даних">
+          <option value="example">dron_przyklad.txt</option>
+          <option value="full">dron.txt</option>
+        </select>
+        <label class="file-label manual-import" for="fileInput">Імпорт свого .txt</label>
+        <input id="fileInput" type="file" accept=".txt,text/plain" />
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel stage">
+        <div id="message" class="message"></div>
+        <div class="stage-grid">
+          <div class="data-stack">
+            <section class="data-card">
+              <h2>1. Рядки файлу</h2>
+              <div class="table-wrap" id="rawWrap">
+                <table class="mini-table">
+                  <thead><tr><th>#</th><th>line</th></tr></thead>
+                  <tbody id="rawRows"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="data-card">
+              <h2>2. Список moves</h2>
+              <div class="table-wrap" id="movesWrap">
+                <table class="mini-table">
+                  <thead><tr><th>#</th><th>A</th><th>B</th></tr></thead>
+                  <tbody id="movesRows"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="data-card">
+              <h2>3. Список points</h2>
+              <div class="table-wrap" id="pointsWrap">
+                <table class="mini-table">
+                  <thead><tr><th>#</th><th>x</th><th>y</th></tr></thead>
+                  <tbody id="pointsRows"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <div class="main-viz">
+            <div class="status-row">
+              <div class="badge"><strong>Рядок файлу</strong><span id="lineBadge">line = ?</span><small id="lineHuman">—</small></div>
+              <div class="badge"><strong>Текстові частини</strong><span id="textBadge">?, ?</span><small>a_text, b_text</small></div>
+              <div class="badge"><strong>Рух</strong><span id="moveBadge">A=?, B=?</span><small>дельта, не точка</small></div>
+              <div class="badge"><strong>Поточна позиція</strong><span id="xyBadge">x=0, y=0</span><small>накопичена точка</small></div>
+              <div class="badge"><strong>Списки</strong><span id="countBadge">0 / 0</span><small>moves / points</small></div>
+            </div>
+
+            <div id="formula" class="formula"></div>
+
+            <section class="map-card">
+              <div class="map-head">
+                <h2>Маршрут після накопичення</h2>
+                <span id="mapMeta">старт (0, 0)</span>
+              </div>
+              <div class="map-wrap" id="mapWrap"></div>
+            </section>
+
+            <div class="legend">
+              <span><span class="swatch blue"></span>поточний рядок файлу</span>
+              <span><span class="swatch green"></span>доданий рух або точка</span>
+              <span><span class="swatch yellow"></span>поточний сегмент маршруту</span>
+              <span><span class="swatch purple"></span>вся вже побудована траєкторія</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="panel card">
+          <div class="loop-panel-grid">
+            <div>
+              <h2>Поточний етап</h2>
+              <div class="phase-stack">
+                <div class="phase-card" id="phaseRead"><strong>1. Прочитати й розібрати рядки</strong><code>file line -> (A, B)</code></div>
+                <div class="phase-card accumulate" id="phaseAccum"><strong>2. Накопичити маршрут</strong><code>(x, y) + (A, B)</code></div>
+              </div>
+              <div class="progress"><div id="progressFill"></div></div>
+              <p id="stepInfo" class="step-info"></p>
+            </div>
+            <div class="control-column">
+              <h2>Керування</h2>
+              <div class="control-bar">
+                <button id="resetBtn">Скинути</button>
+                <button id="prevBtn" class="back">Назад</button>
+                <button id="nextBtn" class="primary">Крок</button>
+                <button id="playBtn" class="good">▶ Авто</button>
+                <button id="nextRowBtn" class="warn">Наступний рядок</button>
+                <button id="routeBtn" class="warn">До маршруту</button>
+                <button id="nextPointBtn" class="warn">Наступна точка</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel card">
+          <h2>Код зі скрипта</h2>
+          <pre class="code" id="codeBlock"></pre>
+        </section>
+
+        <section class="panel card">
+          <h2>Що тримаємо в голові</h2>
+          <div class="concept-note">
+            <div><b>Рядок файлу</b> — це ще просто текст, наприклад <code>"2000 -1001"</code>.</div>
+            <div><b>moves</b> — список рухів. Кожен рух <code>(A, B)</code> каже, на скільки змінити координати.</div>
+            <div><b>points</b> — список позицій після кожного руху. Саме ці точки потрібні в 3.2.</div>
+            <div><b>Старт</b> не записаний у файлі: ми самі починаємо з <code>x = 0</code>, <code>y = 0</code>.</div>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const RAW_DATASETS = {
+      example: `2000 1001
+2000 1004
+2000 1003
+2000 1006
+2000 1003
+2000 -1001
+2000 -1002
+2000 -1004
+2000 -1004
+2000 -1006`,
+      full: `217 98
+214 0
+196 150
+208 29
+220 231
+213 177
+200 152
+173 -365
+184 106
+183 355
+222 -291
+190 -112
+195 462
+191 288
+203 -509
+205 105
+195 559
+202 -73
+220 16
+208 -95
+195 895
+209 -609
+202 -224
+215 -149
+191 329
+180 460
+202 168
+203 781
+196 -1133
+175 606
+204 289
+187 -1514
+183 583
+211 97
+211 52
+212 -324
+195 400
+184 -351
+204 431
+214 1323
+215 -780
+197 -463
+187 733
+169 123
+208 -827
+199 541
+195 408
+225 -1638
+190 1165
+174 -1260
+181 1943
+206 -1455
+204 -241
+213 1513
+187 -949
+199 59
+162 -712
+201 1679
+184 -1573
+212 1148
+183 673
+218 -1472
+194 1196
+210 -2015
+210 1945
+162 -603
+179 -1303
+195 517
+219 397
+189 114
+217 203
+205 -762
+204 19
+217 339
+217 -115
+197 445
+216 -1037
+223 -397
+181 589
+202 -236
+213 47
+216 -466
+221 555
+194 182
+215 -618
+187 472
+195 -76
+205 -359
+225 39
+203 -72
+194 -237
+204 21
+195 -227
+203 -51
+208 149
+213 -272
+199 -239
+178 109
+178 -183
+196 -78`
+    };
+
+    const SCRIPT_LINES = [
+      { n: 1, text: 'moves = []' },
+      { n: 2, text: '' },
+      { n: 3, text: 'with open("dron.txt", "r", encoding="utf-8") as file:' },
+      { n: 4, text: '    for line in file:' },
+      { n: 5, text: '        line = line.strip()' },
+      { n: 6, text: '' },
+      { n: 7, text: '        if line == "":' },
+      { n: 8, text: '            continue' },
+      { n: 9, text: '' },
+      { n: 10, text: '        a_text, b_text = line.split()' },
+      { n: 11, text: '' },
+      { n: 12, text: '        A = int(a_text)' },
+      { n: 13, text: '        B = int(b_text)' },
+      { n: 14, text: '' },
+      { n: 15, text: '        moves.append((A, B))' },
+      { n: 16, text: '' },
+      { n: 17, text: 'x = 0' },
+      { n: 18, text: 'y = 0' },
+      { n: 19, text: '' },
+      { n: 20, text: 'points = []' },
+      { n: 21, text: '' },
+      { n: 22, text: 'for A, B in moves:' },
+      { n: 23, text: '    x = x + A' },
+      { n: 24, text: '    y = y + B' },
+      { n: 25, text: '' },
+      { n: 26, text: '    points.append((x, y))' }
+    ];
+
+    const state = {
+      key: 'example',
+      name: 'dron_przyklad.txt',
+      lines: [],
+      events: [],
+      index: 0,
+      playing: false,
+      timer: null
+    };
+    const autoDelayMs = 520;
+
+    const els = {
+      datasetSelect: document.getElementById('datasetSelect'),
+      fileInput: document.getElementById('fileInput'),
+      resetBtn: document.getElementById('resetBtn'),
+      prevBtn: document.getElementById('prevBtn'),
+      nextBtn: document.getElementById('nextBtn'),
+      playBtn: document.getElementById('playBtn'),
+      nextRowBtn: document.getElementById('nextRowBtn'),
+      routeBtn: document.getElementById('routeBtn'),
+      nextPointBtn: document.getElementById('nextPointBtn'),
+      rawWrap: document.getElementById('rawWrap'),
+      movesWrap: document.getElementById('movesWrap'),
+      pointsWrap: document.getElementById('pointsWrap'),
+      rawRows: document.getElementById('rawRows'),
+      movesRows: document.getElementById('movesRows'),
+      pointsRows: document.getElementById('pointsRows'),
+      message: document.getElementById('message'),
+      formula: document.getElementById('formula'),
+      mapWrap: document.getElementById('mapWrap'),
+      mapMeta: document.getElementById('mapMeta'),
+      lineBadge: document.getElementById('lineBadge'),
+      lineHuman: document.getElementById('lineHuman'),
+      textBadge: document.getElementById('textBadge'),
+      moveBadge: document.getElementById('moveBadge'),
+      xyBadge: document.getElementById('xyBadge'),
+      countBadge: document.getElementById('countBadge'),
+      phaseRead: document.getElementById('phaseRead'),
+      phaseAccum: document.getElementById('phaseAccum'),
+      progressFill: document.getElementById('progressFill'),
+      stepInfo: document.getElementById('stepInfo'),
+      codeBlock: document.getElementById('codeBlock')
+    };
+
+    function parseLines(rawText) {
+      const lines = rawText.split(/\r?\n/).map(line => line.trim()).filter(line => line.length > 0);
+      if (!lines.length) throw new Error('Файл порожній.');
+      lines.forEach((line, index) => {
+        if (!/^-?\d+\s+-?\d+$/.test(line)) {
+          throw new Error(`Рядок ${index + 1} має бути парою цілих чисел, наприклад: 2000 -1001.`);
+        }
+      });
+      return lines;
+    }
+
+    function cloneMoves(moves) {
+      return moves.map(item => ({ ...item }));
+    }
+
+    function clonePoints(points) {
+      return points.map(item => ({ ...item }));
+    }
+
+    function buildEvents(lines) {
+      const events = [];
+      const moves = [];
+      const points = [];
+
+      events.push({
+        type: 'init-moves',
+        phase: 'read',
+        line: 1,
+        rawIndex: null,
+        moves: [],
+        points: [],
+        x: 0,
+        y: 0
+      });
+
+      for (let rawIndex = 0; rawIndex < lines.length; rawIndex++) {
+        const raw = lines[rawIndex];
+        const trimmed = raw.trim();
+        const [aText, bText] = trimmed.split(/\s+/);
+        const A = Number(aText);
+        const B = Number(bText);
+
+        events.push({ type: 'read-line', phase: 'read', line: 4, rawIndex, raw, moves: cloneMoves(moves), points: clonePoints(points), x: 0, y: 0 });
+        events.push({ type: 'strip-line', phase: 'read', line: 5, rawIndex, raw, trimmed, moves: cloneMoves(moves), points: clonePoints(points), x: 0, y: 0 });
+        events.push({ type: 'blank-check', phase: 'read', line: 7, rawIndex, raw, trimmed, moves: cloneMoves(moves), points: clonePoints(points), x: 0, y: 0 });
+        events.push({ type: 'split-line', phase: 'read', line: 10, rawIndex, raw, trimmed, aText, bText, moves: cloneMoves(moves), points: clonePoints(points), x: 0, y: 0 });
+        events.push({ type: 'parse-a', phase: 'read', line: 12, rawIndex, raw, trimmed, aText, bText, A, moves: cloneMoves(moves), points: clonePoints(points), x: 0, y: 0 });
+        events.push({ type: 'parse-b', phase: 'read', line: 13, rawIndex, raw, trimmed, aText, bText, A, B, moves: cloneMoves(moves), points: clonePoints(points), x: 0, y: 0 });
+        moves.push({ A, B, rawIndex });
+        events.push({ type: 'append-move', phase: 'read', line: 15, rawIndex, raw, trimmed, aText, bText, A, B, moves: cloneMoves(moves), points: clonePoints(points), x: 0, y: 0, appendedMoveIndex: moves.length - 1 });
+      }
+
+      let x = 0;
+      let y = 0;
+      events.push({ type: 'set-x', phase: 'accumulate', line: 17, rawIndex: null, moves: cloneMoves(moves), points: [], x, y });
+      events.push({ type: 'set-y', phase: 'accumulate', line: 18, rawIndex: null, moves: cloneMoves(moves), points: [], x, y });
+      events.push({ type: 'init-points', phase: 'accumulate', line: 20, rawIndex: null, moves: cloneMoves(moves), points: [], x, y });
+
+      for (let moveIndex = 0; moveIndex < moves.length; moveIndex++) {
+        const move = moves[moveIndex];
+        const xBefore = x;
+        const yBefore = y;
+        events.push({ type: 'select-move', phase: 'accumulate', line: 22, rawIndex: move.rawIndex, moveIndex, A: move.A, B: move.B, moves: cloneMoves(moves), points: clonePoints(points), x, y, xBefore, yBefore });
+        x = x + move.A;
+        events.push({ type: 'add-x', phase: 'accumulate', line: 23, rawIndex: move.rawIndex, moveIndex, A: move.A, B: move.B, moves: cloneMoves(moves), points: clonePoints(points), x, y, xBefore, yBefore });
+        y = y + move.B;
+        events.push({ type: 'add-y', phase: 'accumulate', line: 24, rawIndex: move.rawIndex, moveIndex, A: move.A, B: move.B, moves: cloneMoves(moves), points: clonePoints(points), x, y, xBefore, yBefore });
+        points.push({ x, y, moveIndex });
+        events.push({ type: 'append-point', phase: 'accumulate', line: 26, rawIndex: move.rawIndex, moveIndex, A: move.A, B: move.B, moves: cloneMoves(moves), points: clonePoints(points), x, y, xBefore, yBefore, appendedPointIndex: points.length - 1 });
+      }
+
+      events.push({ type: 'done', phase: 'accumulate', line: null, rawIndex: null, moves: cloneMoves(moves), points: clonePoints(points), x, y });
+      return events;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+    }
+
+    function renderCode(activeLine) {
+      els.codeBlock.innerHTML = SCRIPT_LINES.map(item => {
+        const active = item.n === activeLine ? ' active' : (item.text === '' ? ' dim' : '');
+        return `<span class="code-line${active}" data-line="${item.n}"><span class="num">${item.text ? item.n : ''}</span><span>${escapeHtml(item.text)}</span></span>`;
+      }).join('');
+      const active = els.codeBlock.querySelector('.code-line.active');
+      if (active) {
+        const top = active.offsetTop;
+        const bottom = top + active.offsetHeight;
+        if (top < els.codeBlock.scrollTop) els.codeBlock.scrollTop = Math.max(0, top - 8);
+        else if (bottom > els.codeBlock.scrollTop + els.codeBlock.clientHeight) els.codeBlock.scrollTop = bottom - els.codeBlock.clientHeight + 8;
+      }
+    }
+
+    function renderMessage(event) {
+      const rowText = event.rawIndex === null || event.rawIndex === undefined ? '' : `рядок <b>${event.rawIndex + 1}</b>`;
+      if (event.type === 'init-moves') {
+        els.message.innerHTML = `Починаємо з <b>moves = []</b>. Це порожній список, куди скрипт складатиме вже не текстові рядки, а нормальні пари чисел <b>(A, B)</b>.`;
+      } else if (event.type === 'read-line') {
+        els.message.innerHTML = `Цикл <b>for line in file</b> взяв ${rowText} з файлу. Поки що це просто текст: <b>"${escapeHtml(event.raw)}"</b>.`;
+      } else if (event.type === 'strip-line') {
+        els.message.innerHTML = `<b>line.strip()</b> прибирає зайві пробіли або символ переносу рядка з кінця. Зміст лишився: <b>"${escapeHtml(event.trimmed)}"</b>.`;
+      } else if (event.type === 'blank-check') {
+        els.message.innerHTML = `Перевірка <b>if line == ""</b> потрібна на випадок порожнього рядка. Тут рядок не порожній, тому <b>continue</b> не спрацьовує і ми йдемо далі.`;
+      } else if (event.type === 'split-line') {
+        els.message.innerHTML = `<b>line.split()</b> розрізає рядок по пробілу: отримуємо <b>a_text = "${event.aText}"</b> і <b>b_text = "${event.bText}"</b>. Це все ще текст, не числа.`;
+      } else if (event.type === 'parse-a') {
+        els.message.innerHTML = `<b>A = int(a_text)</b> перетворює текст <b>"${event.aText}"</b> на число <b>${event.A}</b>. Тепер його можна додавати до координати x.`;
+      } else if (event.type === 'parse-b') {
+        els.message.innerHTML = `<b>B = int(b_text)</b> перетворює текст <b>"${event.bText}"</b> на число <b>${event.B}</b>. Це майбутня зміна координати y.`;
+      } else if (event.type === 'append-move') {
+        els.message.innerHTML = `<b>moves.append((A, B))</b> додає рух <b>(${event.A}, ${event.B})</b>. Важливо: це ще не позиція дрона, а тільки команда "змістися на A і B".`;
+      } else if (event.type === 'set-x') {
+        els.message.innerHTML = `Починаємо другий етап. <b>x = 0</b> означає: стартова позиція дрона по горизонталі дорівнює нулю.`;
+      } else if (event.type === 'set-y') {
+        els.message.innerHTML = `<b>y = 0</b> означає: стартова позиція по вертикалі теж нуль. Отже стартова точка — <b>(0, 0)</b>.`;
+      } else if (event.type === 'init-points') {
+        els.message.innerHTML = `<b>points = []</b> створює список для готових позицій. Сюди ми додаватимемо не рухи, а точки після кожного руху.`;
+      } else if (event.type === 'select-move') {
+        els.message.innerHTML = `Цикл <b>for A, B in moves</b> взяв рух №<b>${event.moveIndex + 1}</b>: <b>A = ${event.A}</b>, <b>B = ${event.B}</b>. Поточна позиція перед рухом: <b>(${event.xBefore}, ${event.yBefore})</b>.`;
+      } else if (event.type === 'add-x') {
+        els.message.innerHTML = `<b>x = x + A</b>: було <b>${event.xBefore}</b>, додаємо <b>${event.A}</b>, отримуємо <b>${event.x}</b>. Змінилась тільки координата x.`;
+      } else if (event.type === 'add-y') {
+        els.message.innerHTML = `<b>y = y + B</b>: було <b>${event.yBefore}</b>, додаємо <b>${event.B}</b>, отримуємо <b>${event.y}</b>. Тепер маємо повну нову позицію <b>(${event.x}, ${event.y})</b>.`;
+      } else if (event.type === 'append-point') {
+        els.message.innerHTML = `<b>points.append((x, y))</b> зберігає позицію після руху №<b>${event.moveIndex + 1}</b>: <b>(${event.x}, ${event.y})</b>. Саме такі точки потім перевіряє завдання 3.2.`;
+      } else {
+        els.message.innerHTML = `Готово: з <b>${event.moves.length}</b> рядків отримали <b>${event.moves.length}</b> рухів і <b>${event.points.length}</b> точок маршруту. Фінальна позиція: <b>(${event.x}, ${event.y})</b>.`;
+      }
+    }
+
+    function renderFormula(event) {
+      if (event.phase === 'read') {
+        if (event.type === 'split-line') {
+          els.formula.innerHTML = `<code>"${escapeHtml(event.raw)}".split()</code> -> <code>["${event.aText}", "${event.bText}"]</code>`;
+        } else if (event.type === 'parse-a' || event.type === 'parse-b') {
+          const bPart = event.B === undefined ? '?' : event.B;
+          els.formula.innerHTML = `<code>a_text="${event.aText}"</code>, <code>b_text="${event.bText}"</code><br><code>A=${event.A ?? '?'}</code>, <code>B=${bPart}</code>`;
+        } else if (event.A !== undefined && event.B !== undefined) {
+          els.formula.innerHTML = `<code>moves.append((${event.A}, ${event.B}))</code><br>Список рухів тепер має <b>${event.moves.length}</b> елементів.`;
+        } else {
+          els.formula.innerHTML = `Етап читання: беремо один рядок файлу, чистимо його, розбиваємо на дві частини й перетворюємо ці частини на числа.`;
+        }
+      } else if (event.type === 'select-move') {
+        els.formula.innerHTML = `<code>for A, B in moves</code><br>Беремо рух <b>(${event.A}, ${event.B})</b>, але координати ще не змінені.`;
+      } else if (event.type === 'add-x') {
+        els.formula.innerHTML = `<code>x = x + A</code><br><b>${event.xBefore}</b> + <b>${event.A}</b> = <b>${event.x}</b>`;
+      } else if (event.type === 'add-y') {
+        els.formula.innerHTML = `<code>y = y + B</code><br><b>${event.yBefore}</b> + <b>${event.B}</b> = <b>${event.y}</b>`;
+      } else if (event.type === 'append-point') {
+        els.formula.innerHTML = `<code>points.append((x, y))</code><br>Додаємо точку <b>(${event.x}, ${event.y})</b>, бо обидві координати вже оновлені.`;
+      } else {
+        els.formula.innerHTML = `Етап маршруту: стартуємо з <b>(0, 0)</b>, а кожен рух <b>(A, B)</b> додаємо до поточної позиції.`;
+      }
+    }
+
+    function renderBadges(event) {
+      els.lineBadge.textContent = event.rawIndex === null || event.rawIndex === undefined ? 'line = —' : `line = ${event.rawIndex + 1}`;
+      els.lineHuman.textContent = event.rawIndex === null || event.rawIndex === undefined ? state.name : `"${state.lines[event.rawIndex] || ''}"`;
+      els.textBadge.textContent = event.aText === undefined ? '?, ?' : `${event.aText}, ${event.bText}`;
+      els.moveBadge.textContent = event.A === undefined ? 'A=?, B=?' : `A=${event.A}, B=${event.B ?? '?'}`;
+      els.xyBadge.textContent = `x=${event.x ?? 0}, y=${event.y ?? 0}`;
+      els.countBadge.textContent = `${event.moves.length} / ${event.points.length}`;
+    }
+
+    function renderPhase(event) {
+      els.phaseRead.classList.toggle('active', event.phase === 'read');
+      els.phaseAccum.classList.toggle('active', event.phase === 'accumulate');
+    }
+
+    function renderActiveBadges(event) {
+      const badges = [els.lineBadge, els.textBadge, els.moveBadge, els.xyBadge, els.countBadge]
+        .map(el => el.closest('.badge'));
+      badges.forEach(el => el.classList.remove('active'));
+      if (['read-line', 'strip-line', 'blank-check'].includes(event.type)) {
+        els.lineBadge.closest('.badge').classList.add('active');
+      } else if (event.type === 'split-line') {
+        els.textBadge.closest('.badge').classList.add('active');
+      } else if (['parse-a', 'parse-b', 'select-move'].includes(event.type)) {
+        els.moveBadge.closest('.badge').classList.add('active');
+      } else if (['set-x', 'set-y', 'add-x', 'add-y'].includes(event.type)) {
+        els.xyBadge.closest('.badge').classList.add('active');
+      } else {
+        els.countBadge.closest('.badge').classList.add('active');
+      }
+    }
+
+    function renderRows(event) {
+      els.rawRows.innerHTML = state.lines.map((line, index) => {
+        const active = index === event.rawIndex ? ' class="active"' : '';
+        return `<tr${active}><td class="num">${index + 1}</td><td>${escapeHtml(line)}</td></tr>`;
+      }).join('');
+
+      els.movesRows.innerHTML = event.moves.length
+        ? event.moves.map((move, index) => {
+          const active = index === event.moveIndex ? ' active' : '';
+          const appended = index === event.appendedMoveIndex ? ' appended' : '';
+          return `<tr class="${active}${appended}"><td class="num">${index + 1}</td><td>${move.A}</td><td>${move.B}</td></tr>`;
+        }).join('')
+        : '<tr><td colspan="3">Поки що порожньо.</td></tr>';
+
+      els.pointsRows.innerHTML = event.points.length
+        ? event.points.map((point, index) => {
+          const active = index === event.appendedPointIndex ? ' active appended' : '';
+          return `<tr class="${active}"><td class="num">${index + 1}</td><td>${point.x}</td><td>${point.y}</td></tr>`;
+        }).join('')
+        : '<tr><td colspan="3">Поки що порожньо.</td></tr>';
+
+      keepRowVisible(els.rawWrap, event.rawIndex);
+      keepRowVisible(els.movesWrap, event.moveIndex);
+      keepRowVisible(els.pointsWrap, event.appendedPointIndex);
+    }
+
+    function keepRowVisible(container, index) {
+      if (index === null || index === undefined || index < 0) return;
+      const rows = container.querySelectorAll('tbody tr');
+      const row = rows[index];
+      if (!row) return;
+      const top = row.offsetTop;
+      const bottom = top + row.offsetHeight;
+      if (top < container.scrollTop) container.scrollTop = Math.max(0, top - 28);
+      else if (bottom > container.scrollTop + container.clientHeight) container.scrollTop = bottom - container.clientHeight + 8;
+    }
+
+    function renderMap(event) {
+      const points = event.points || [];
+      const route = [{ x: 0, y: 0 }, ...points.map(point => ({ x: point.x, y: point.y }))];
+      const xs = route.map(point => point.x);
+      const ys = route.map(point => point.y);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      const width = 700;
+      const height = 330;
+      const pad = 28;
+      const spanX = Math.max(1, maxX - minX);
+      const spanY = Math.max(1, maxY - minY);
+      const scale = point => {
+        const x = pad + ((point.x - minX) / spanX) * (width - pad * 2);
+        const y = height - pad - ((point.y - minY) / spanY) * (height - pad * 2);
+        return { x, y };
+      };
+      const plotted = route.map(scale);
+      const polyline = plotted.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
+      const last = plotted[plotted.length - 1] || scale({ x: 0, y: 0 });
+      const prev = plotted[plotted.length - 2] || last;
+      const current = route[route.length - 1] || { x: 0, y: 0 };
+      const axisY = minY <= 0 && maxY >= 0 ? scale({ x: minX, y: 0 }).y : null;
+      const axisX = minX <= 0 && maxX >= 0 ? scale({ x: 0, y: minY }).x : null;
+      const hasMoved = points.length > 0;
+      const currentSegment = plotted.length > 1 ? `<line x1="${prev.x}" y1="${prev.y}" x2="${last.x}" y2="${last.y}" stroke="#f59e0b" stroke-width="5" stroke-linecap="round" />` : '';
+      const currentLabel = hasMoved
+        ? `<text x="${Math.min(width - 150, last.x + 9)}" y="${Math.max(18, last.y - 8)}" font-family="Arial, sans-serif" font-size="12" font-weight="800" fill="#166534">(${current.x}, ${current.y})</text>`
+        : '';
+      const axisLines = [
+        axisY === null ? '' : `<line x1="${pad}" y1="${axisY}" x2="${width - pad}" y2="${axisY}" stroke="#d5dce8" stroke-width="1" stroke-dasharray="5 5" />`,
+        axisX === null ? '' : `<line x1="${axisX}" y1="${pad}" x2="${axisX}" y2="${height - pad}" stroke="#d5dce8" stroke-width="1" stroke-dasharray="5 5" />`
+      ].join('');
+
+      els.mapMeta.textContent = `точок: ${points.length}, поточна (${current.x}, ${current.y})`;
+      els.mapWrap.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Маршрут дрона">
+          <rect x="0" y="0" width="${width}" height="${height}" rx="8" fill="#ffffff" />
+          ${axisLines}
+          <polyline points="${polyline}" fill="none" stroke="#7c3aed" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          ${currentSegment}
+          <circle cx="${plotted[0].x}" cy="${plotted[0].y}" r="6" fill="#2563eb" />
+          <circle cx="${last.x}" cy="${last.y}" r="7" fill="#16a34a" stroke="#064e3b" stroke-width="2" />
+          <text x="${plotted[0].x + 9}" y="${plotted[0].y - 8}" font-family="Arial, sans-serif" font-size="12" font-weight="800" fill="#2563eb">start</text>
+          ${currentLabel}
+        </svg>`;
+    }
+
+    function renderProgress() {
+      const pct = state.events.length <= 1 ? 0 : (state.index / (state.events.length - 1)) * 100;
+      els.progressFill.style.width = `${pct}%`;
+      els.stepInfo.textContent = `${state.name} · крок ${state.index + 1} / ${state.events.length}`;
+    }
+
+    function render() {
+      const event = state.events[state.index] || state.events[0];
+      renderCode(event.line);
+      renderMessage(event);
+      renderFormula(event);
+      renderBadges(event);
+      renderPhase(event);
+      renderActiveBadges(event);
+      renderRows(event);
+      renderMap(event);
+      renderProgress();
+    }
+
+    function setDataset(key, rawText, name) {
+      stop();
+      state.key = key;
+      state.name = name;
+      state.lines = parseLines(rawText);
+      state.events = buildEvents(state.lines);
+      state.index = 0;
+      render();
+    }
+
+    function step(delta) {
+      state.index = Math.max(0, Math.min(state.events.length - 1, state.index + delta));
+      render();
+    }
+
+    function stop() {
+      state.playing = false;
+      if (state.timer) clearInterval(state.timer);
+      state.timer = null;
+      els.playBtn.textContent = '▶ Авто';
+    }
+
+    function play() {
+      if (state.playing) {
+        stop();
+        return;
+      }
+      state.playing = true;
+      els.playBtn.textContent = '⏸ Пауза';
+      state.timer = setInterval(() => {
+        if (state.index >= state.events.length - 1) {
+          stop();
+          return;
+        }
+        step(1);
+      }, autoDelayMs);
+    }
+
+    function jumpToNext(typeName) {
+      stop();
+      for (let idx = state.index + 1; idx < state.events.length; idx++) {
+        if (state.events[idx].type === typeName) {
+          state.index = idx;
+          render();
+          return;
+        }
+      }
+      state.index = state.events.length - 1;
+      render();
+    }
+
+    function jumpToRoute() {
+      stop();
+      const idx = state.events.findIndex(event => event.phase === 'accumulate');
+      state.index = idx === -1 ? state.events.length - 1 : idx;
+      render();
+    }
+
+    els.datasetSelect.addEventListener('change', () => {
+      const key = els.datasetSelect.value;
+      setDataset(key, RAW_DATASETS[key], key === 'example' ? 'dron_przyklad.txt' : 'dron.txt');
+    });
+    els.fileInput.addEventListener('change', async () => {
+      const file = els.fileInput.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        setDataset('custom', text, file.name);
+      } catch (err) {
+        alert(err.message || String(err));
+      } finally {
+        els.fileInput.value = '';
+      }
+    });
+    els.resetBtn.addEventListener('click', () => { stop(); state.index = 0; render(); });
+    els.prevBtn.addEventListener('click', () => { stop(); step(-1); });
+    els.nextBtn.addEventListener('click', () => { stop(); step(1); });
+    els.playBtn.addEventListener('click', play);
+    els.nextRowBtn.addEventListener('click', () => jumpToNext('read-line'));
+    els.routeBtn.addEventListener('click', jumpToRoute);
+    els.nextPointBtn.addEventListener('click', () => jumpToNext('append-point'));
+
+    setDataset('example', RAW_DATASETS.example, 'dron_przyklad.txt');
+  </script>
+</body>
+</html>

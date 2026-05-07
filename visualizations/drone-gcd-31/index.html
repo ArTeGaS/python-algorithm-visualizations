@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3.1 Рухи дрона і gcd</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --ink: #111827;
+      --muted: #5b6472;
+      --line: #d5dce8;
+      --line-strong: #9aa8bd;
+      --blue: #2563eb;
+      --blue-soft: #dbeafe;
+      --green: #16a34a;
+      --green-soft: #dcfce7;
+      --yellow: #f59e0b;
+      --yellow-soft: #fef3c7;
+      --red: #dc2626;
+      --red-soft: #fee2e2;
+      --purple: #7c3aed;
+      --purple-soft: #ede9fe;
+      --shadow: 0 16px 38px rgba(15, 23, 42, .10);
+      --radius: 8px;
+      --mono: Consolas, "Courier New", monospace;
+      --sans: Arial, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+    .app { max-width: 1540px; margin: 0 auto; padding: 14px 20px 16px; }
+    header { display: grid; grid-template-columns: minmax(420px, 1fr) auto; gap: 16px; align-items: start; margin-bottom: 10px; }
+    h1 { margin: 0 0 3px; font-size: 27px; line-height: 1.05; letter-spacing: 0; }
+    .subtitle { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.32; max-width: 940px; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+    button, select, .file-label, .home-link { height: 38px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); color: var(--ink); font: 700 14px var(--sans); padding: 0 12px; cursor: pointer; }
+    button, .file-label, .home-link { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+    .home-link { text-decoration: none; border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
+    .manual-import { height: 32px; border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; font-size: 13px; padding: 0 10px; }
+    button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    button.good { background: var(--green); border-color: var(--green); color: #fff; }
+    button.warn { background: var(--yellow-soft); border-color: #f3bf45; }
+    button.back { background: #fde68a; border-color: #d97706; color: #111827; }
+    button:disabled { opacity: .45; cursor: default; }
+    input[type="file"] { display: none; }
+
+    .layout { display: grid; grid-template-columns: minmax(760px, 1fr) minmax(430px, 560px); gap: 16px; align-items: start; }
+    .work-column { display: grid; gap: 10px; min-width: 0; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .stage { padding: 14px; }
+    .message { height: 74px; border-radius: 7px; border: 1px solid var(--line); background: #fbfdff; padding: 9px 12px; font-size: 16px; line-height: 1.32; margin-bottom: 10px; overflow: auto; }
+    .message b { color: var(--blue); }
+    .message .good-text { color: var(--green); font-weight: 800; }
+    .message .bad { color: var(--red); font-weight: 800; }
+    .stage-grid { display: grid; grid-template-columns: minmax(390px, 520px) minmax(360px, 1fr); gap: 12px; align-items: start; }
+    .data-card { border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; overflow: hidden; }
+    .data-card h2 { margin: 0; padding: 8px 10px; font-size: 16px; line-height: 1.1; border-bottom: 1px solid var(--line); background: #f8fafc; }
+    .table-wrap { max-height: 556px; overflow: auto; }
+    .mini-table { width: 100%; border-collapse: collapse; font: 13px/1.25 var(--mono); }
+    .mini-table th, .mini-table td { border-bottom: 1px solid var(--line); padding: 5px 7px; text-align: left; white-space: nowrap; }
+    .mini-table th { position: sticky; top: 0; z-index: 2; background: #f8fafc; color: var(--muted); font: 800 12px var(--sans); }
+    .mini-table tr.active td { background: var(--blue-soft); box-shadow: inset 0 0 0 999px rgba(37, 99, 235, .03); }
+    .mini-table tr.counted td { background: var(--green-soft); }
+    .mini-table tr.rejected td { background: #fff; color: var(--muted); }
+    .mini-table .num { color: var(--muted); font-family: var(--sans); font-weight: 800; }
+    .mini-table .pending { color: var(--muted); }
+    .yes { color: var(--green); font-weight: 900; }
+    .no { color: var(--red); font-weight: 900; }
+    .main-viz { display: grid; gap: 10px; min-width: 0; }
+    .status-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    .badge { min-height: 58px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; min-width: 0; }
+    .badge.active { border-color: var(--blue); background: var(--blue-soft); box-shadow: inset 0 0 0 2px rgba(37,99,235,.18); }
+    .badge strong { display: block; color: var(--muted); font-size: 11px; line-height: 1.05; margin: 0 0 4px; }
+    .badge span { display: block; font-family: var(--mono); font-size: 17px; font-weight: 800; line-height: 1.12; white-space: normal; overflow-wrap: anywhere; }
+    .badge small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.05; }
+    .formula { border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; padding: 10px 12px; min-height: 82px; font-size: 16px; line-height: 1.32; }
+    .formula code { font: 800 15px var(--mono); color: var(--blue); }
+    .gcd-card { border: 1px solid var(--line); border-radius: 7px; background: #fff; overflow: hidden; }
+    .gcd-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; padding: 8px 10px; border-bottom: 1px solid var(--line); background: #f8fafc; }
+    .gcd-head h2 { margin: 0; font-size: 16px; line-height: 1.1; }
+    .gcd-head span { color: var(--muted); font-size: 12px; font-weight: 800; }
+    .gcd-body { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 10px; align-items: start; min-width: 0; }
+    .euclid-table { width: 100%; border-collapse: collapse; font: 14px/1.25 var(--mono); }
+    .euclid-table th, .euclid-table td { border-bottom: 1px solid var(--line); padding: 6px 7px; text-align: left; }
+    .euclid-table th { color: var(--muted); font: 800 12px var(--sans); background: #f8fafc; }
+    .decision { min-height: 78px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 3px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; padding: 10px; text-align: left; min-width: 0; }
+    .decision .big { grid-row: 1 / span 2; font: 900 26px/1 var(--mono); color: var(--blue); white-space: nowrap; }
+    .decision .verdict { font-size: 16px; font-weight: 900; line-height: 1.1; }
+    .decision .hint { color: var(--muted); font-size: 13px; line-height: 1.18; }
+    .decision.accept { background: var(--green-soft); border-color: #86efac; }
+    .decision.accept .big, .decision.accept .verdict { color: #166534; }
+    .decision.reject { background: var(--red-soft); border-color: #fecaca; }
+    .decision.reject .big, .decision.reject .verdict { color: #991b1b; }
+    .legend { display: grid; grid-template-columns: repeat(4, auto); gap: 7px 12px; margin-top: 8px; color: var(--muted); font-size: 13px; align-items: center; }
+    .swatch { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--line-strong); display: inline-block; vertical-align: middle; margin-right: 5px; }
+    .swatch.blue { background: var(--blue-soft); }
+    .swatch.green { background: var(--green-soft); }
+    .swatch.red { background: var(--red-soft); }
+    .swatch.purple { background: var(--purple-soft); }
+    .side { display: grid; gap: 10px; }
+    .card { padding: 10px; }
+    .card h2 { margin: 0 0 8px; font-size: 19px; line-height: 1.1; }
+    .loop-panel-grid { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 10px; align-items: start; }
+    .control-column h2 { margin-bottom: 6px; }
+    .control-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+    .control-bar button { height: 29px; padding: 0 6px; width: 100%; font-size: 13px; }
+    .phase-stack { display: grid; gap: 7px; }
+    .phase-card { border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px; background: #fbfdff; }
+    .phase-card.active { border-color: var(--blue); box-shadow: inset 0 0 0 2px rgba(37,99,235,.18); }
+    .phase-card.check { background: #fffaf0; }
+    .phase-card strong { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+    .phase-card code { font: 800 15px var(--mono); }
+    .code { margin: 0; background: #0f172a; color: #dbeafe; border-radius: 7px; padding: 8px 0; overflow: auto; max-height: 430px; font: 14px/1.32 var(--mono); }
+    .code-line { display: grid; grid-template-columns: 30px 1fr; gap: 7px; padding: 1px 10px; white-space: pre; }
+    .code-line .num { color: #64748b; text-align: right; }
+    .code-line.active { background: rgba(37, 99, 235, .32); color: #fff; }
+    .code-line.dim { color: #8ea5c8; }
+    .concept-panel { padding: 12px 14px; }
+    .concept-panel h2 { margin: 0 0 8px; font-size: 18px; line-height: 1.1; }
+    .concept-note { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; color: var(--muted); font-size: 14px; line-height: 1.32; }
+    .concept-note div { border: 1px solid var(--line); border-radius: 7px; background: #fbfdff; padding: 8px 10px; }
+    .concept-note b { color: var(--ink); }
+    .concept-note code { color: var(--blue); font: 800 14px var(--mono); }
+    .progress { height: 10px; border-radius: 999px; background: #e5e7eb; overflow: hidden; margin-top: 8px; }
+    .progress > div { height: 100%; background: linear-gradient(90deg, var(--blue), var(--green)); width: 0; }
+    .step-info { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
+
+    @media (max-width: 1180px) {
+      header, .layout, .stage-grid { grid-template-columns: 1fr; }
+      .toolbar { justify-content: flex-start; }
+      .status-row { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+      .loop-panel-grid { grid-template-columns: 1fr; }
+      .control-bar { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+    }
+
+    @media (max-width: 720px) {
+      .app { padding: 12px; }
+      .status-row, .control-bar, .legend, .gcd-body, .concept-note { grid-template-columns: 1fr; }
+      .table-wrap { max-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>3.1 Рухи дрона і найбільший спільний дільник</h1>
+        <p class="subtitle">Показуємо другу частину скрипта: для кожного руху <b>(A, B)</b> беремо <b>abs(A)</b>, <b>abs(B)</b>, рахуємо <b>gcd(a, b)</b> і збільшуємо <b>count</b>, якщо <b>d &gt; 1</b>.</p>
+      </div>
+      <div class="toolbar">
+        <a class="home-link" href="../../index.html">&larr; До списку</a>
+        <select id="datasetSelect" aria-label="Вбудований набір даних">
+          <option value="example">dron_przyklad.txt</option>
+          <option value="full">dron.txt</option>
+        </select>
+        <label class="file-label manual-import" for="fileInput">Імпорт свого .txt</label>
+        <input id="fileInput" type="file" accept=".txt,text/plain" />
+      </div>
+    </header>
+
+    <main class="layout">
+      <div class="work-column">
+        <section class="panel stage">
+          <div id="message" class="message"></div>
+          <div class="stage-grid">
+            <section class="data-card">
+              <h2>Рухи і результат перевірки</h2>
+              <div class="table-wrap" id="movesWrap">
+                <table class="mini-table">
+                  <thead><tr><th>#</th><th>A</th><th>B</th><th>abs(A)</th><th>abs(B)</th><th>d</th><th>d&gt;1</th></tr></thead>
+                  <tbody id="movesRows"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <div class="main-viz">
+              <div class="status-row">
+                <div class="badge"><strong>Поточний рух</strong><span id="moveBadge">A=?, B=?</span><small>з moves</small></div>
+                <div class="badge"><strong>Без знаку</strong><span id="absBadge">a=?, b=?</span><small>abs(A), abs(B)</small></div>
+                <div class="badge"><strong>gcd</strong><span id="gcdBadge">d=?</span><small>найбільший спільний дільник</small></div>
+                <div class="badge"><strong>Умова</strong><span id="conditionBadge">d > 1?</span><small>чи рахуємо рух</small></div>
+                <div class="badge"><strong>Лічильник</strong><span id="countBadge">count = 0</span><small>скільки уже підходить</small></div>
+                <div class="badge"><strong>Файл</strong><span id="totalBadge">0 / 0</span><small>рух / всього</small></div>
+              </div>
+
+              <div id="formula" class="formula"></div>
+
+              <section class="gcd-card">
+                <div class="gcd-head">
+                  <h2>Як рахується gcd(a, b)</h2>
+                  <span id="gcdMeta">ще не вибрано рух</span>
+                </div>
+                <div class="gcd-body">
+                  <table class="euclid-table">
+                    <thead><tr><th>Крок</th><th>Ділення з остачею</th></tr></thead>
+                    <tbody id="euclidRows"></tbody>
+                  </table>
+                  <div id="decision" class="decision">
+                    <div class="big">?</div>
+                    <div class="verdict">чекаємо на рух</div>
+                    <div>Коли <b>d &gt; 1</b>, рух додається до відповіді.</div>
+                  </div>
+                </div>
+              </section>
+
+              <div class="legend">
+                <span><span class="swatch blue"></span>поточний рух</span>
+                <span><span class="swatch green"></span>рух зараховано</span>
+                <span><span class="swatch red"></span>рух не підходить</span>
+                <span><span class="swatch purple"></span>gcd через остачі</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel concept-panel">
+          <h2>Що тут важливо</h2>
+          <div class="concept-note">
+            <div><b>Знак руху не важливий</b> для дільника, тому скрипт робить <code>abs(A)</code> і <code>abs(B)</code>.</div>
+            <div><b>gcd(a, b)</b> питає: яке найбільше число ділить обидві координати руху без остачі.</div>
+            <div><b>d &gt; 1</b> означає, що рух має нетривіальний спільний крок, тому <code>count</code> збільшується.</div>
+            <div><b>d = 1</b> означає, що спільного дільника більше за 1 немає, тому рух пропускаємо.</div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="side">
+        <section class="panel card">
+          <div class="loop-panel-grid">
+            <div>
+              <h2>Поточний етап</h2>
+              <div class="phase-stack">
+                <div class="phase-card" id="phaseSelect"><strong>1. Взяти рух</strong><code>for A, B in moves</code></div>
+                <div class="phase-card" id="phaseAbs"><strong>2. Прибрати знак</strong><code>a = abs(A), b = abs(B)</code></div>
+                <div class="phase-card check" id="phaseGcd"><strong>3. Знайти gcd</strong><code>d = gcd(a, b)</code></div>
+                <div class="phase-card check" id="phaseCount"><strong>4. Перевірити й порахувати</strong><code>if d &gt; 1: count += 1</code></div>
+              </div>
+              <div class="progress"><div id="progressFill"></div></div>
+              <p id="stepInfo" class="step-info"></p>
+            </div>
+            <div class="control-column">
+              <h2>Керування</h2>
+              <div class="control-bar">
+                <button id="resetBtn">Скинути</button>
+                <button id="prevBtn" class="back">Назад</button>
+                <button id="nextBtn" class="primary">Крок</button>
+                <button id="playBtn" class="good">▶ Авто</button>
+                <button id="nextMoveBtn" class="warn">Наступний рух</button>
+                <button id="nextCountedBtn" class="warn">Початок зарахованого</button>
+                <button id="finishBtn" class="warn">До відповіді</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel card">
+          <h2>Код зі скрипта</h2>
+          <pre class="code" id="codeBlock"></pre>
+        </section>
+
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const RAW_DATASETS = {
+      example: `2000 1001
+2000 1004
+2000 1003
+2000 1006
+2000 1003
+2000 -1001
+2000 -1002
+2000 -1004
+2000 -1004
+2000 -1006`,
+      full: `217 98
+214 0
+196 150
+208 29
+220 231
+213 177
+200 152
+173 -365
+184 106
+183 355
+222 -291
+190 -112
+195 462
+191 288
+203 -509
+205 105
+195 559
+202 -73
+220 16
+208 -95
+195 895
+209 -609
+202 -224
+215 -149
+191 329
+180 460
+202 168
+203 781
+196 -1133
+175 606
+204 289
+187 -1514
+183 583
+211 97
+211 52
+212 -324
+195 400
+184 -351
+204 431
+214 1323
+215 -780
+197 -463
+187 733
+169 123
+208 -827
+199 541
+195 408
+225 -1638
+190 1165
+174 -1260
+181 1943
+206 -1455
+204 -241
+213 1513
+187 -949
+199 59
+162 -712
+201 1679
+184 -1573
+212 1148
+183 673
+218 -1472
+194 1196
+210 -2015
+210 1945
+162 -603
+179 -1303
+195 517
+219 397
+189 114
+217 203
+205 -762
+204 19
+217 339
+217 -115
+197 445
+216 -1037
+223 -397
+181 589
+202 -236
+213 47
+216 -466
+221 555
+194 182
+215 -618
+187 472
+195 -76
+205 -359
+225 39
+203 -72
+194 -237
+204 21
+195 -227
+203 -51
+208 149
+213 -272
+199 -239
+178 109
+178 -183
+196 -78`
+    };
+
+    const SCRIPT_LINES = [
+      { n: 1, text: 'moves = []' },
+      { n: 2, text: '' },
+      { n: 3, text: 'with open("dron.txt", "r", encoding="utf-8") as file:' },
+      { n: 4, text: '    for line in file:' },
+      { n: 5, text: '        line = line.strip()' },
+      { n: 6, text: '' },
+      { n: 7, text: '        if line == "":' },
+      { n: 8, text: '            continue' },
+      { n: 9, text: '' },
+      { n: 10, text: '        a_text, b_text = line.split()' },
+      { n: 11, text: '' },
+      { n: 12, text: '        A = int(a_text)' },
+      { n: 13, text: '        B = int(b_text)' },
+      { n: 14, text: '' },
+      { n: 15, text: '        moves.append((A, B))' },
+      { n: 16, text: '' },
+      { n: 17, text: 'from math import gcd' },
+      { n: 18, text: '' },
+      { n: 19, text: 'count = 0' },
+      { n: 20, text: '' },
+      { n: 21, text: 'for A, B in moves:' },
+      { n: 22, text: '    a = abs(A)' },
+      { n: 23, text: '    b = abs(B)' },
+      { n: 24, text: '' },
+      { n: 25, text: '    d = gcd(a, b)' },
+      { n: 26, text: '' },
+      { n: 27, text: '    if d > 1:' },
+      { n: 28, text: '        count += 1' },
+      { n: 29, text: '' },
+      { n: 30, text: 'print(count)' }
+    ];
+
+    const state = { key: 'example', name: 'dron_przyklad.txt', moves: [], events: [], index: 0, playing: false, timer: null };
+    const autoDelayMs = 520;
+
+    const els = {
+      datasetSelect: document.getElementById('datasetSelect'),
+      fileInput: document.getElementById('fileInput'),
+      resetBtn: document.getElementById('resetBtn'),
+      prevBtn: document.getElementById('prevBtn'),
+      nextBtn: document.getElementById('nextBtn'),
+      playBtn: document.getElementById('playBtn'),
+      nextMoveBtn: document.getElementById('nextMoveBtn'),
+      nextCountedBtn: document.getElementById('nextCountedBtn'),
+      finishBtn: document.getElementById('finishBtn'),
+      movesWrap: document.getElementById('movesWrap'),
+      movesRows: document.getElementById('movesRows'),
+      message: document.getElementById('message'),
+      formula: document.getElementById('formula'),
+      moveBadge: document.getElementById('moveBadge'),
+      absBadge: document.getElementById('absBadge'),
+      gcdBadge: document.getElementById('gcdBadge'),
+      conditionBadge: document.getElementById('conditionBadge'),
+      countBadge: document.getElementById('countBadge'),
+      totalBadge: document.getElementById('totalBadge'),
+      gcdMeta: document.getElementById('gcdMeta'),
+      euclidRows: document.getElementById('euclidRows'),
+      decision: document.getElementById('decision'),
+      phaseSelect: document.getElementById('phaseSelect'),
+      phaseAbs: document.getElementById('phaseAbs'),
+      phaseGcd: document.getElementById('phaseGcd'),
+      phaseCount: document.getElementById('phaseCount'),
+      progressFill: document.getElementById('progressFill'),
+      stepInfo: document.getElementById('stepInfo'),
+      codeBlock: document.getElementById('codeBlock')
+    };
+
+    function parseMoves(rawText) {
+      const lines = rawText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      if (!lines.length) throw new Error('Файл порожній.');
+      return lines.map((line, index) => {
+        if (!/^-?\d+\s+-?\d+$/.test(line)) throw new Error(`Рядок ${index + 1} має бути парою цілих чисел.`);
+        const [aText, bText] = line.split(/\s+/);
+        return { A: Number(aText), B: Number(bText), raw: line };
+      });
+    }
+
+    function gcdSteps(a, b) {
+      const steps = [];
+      let left = a;
+      let right = b;
+      if (left === 0 && right === 0) return { d: 0, steps: [{ left: 0, right: 0, remainder: 0 }] };
+      if (left === 0 || right === 0) return { d: Math.max(left, right), steps: [{ left, right, remainder: 0 }] };
+      while (right !== 0) {
+        const remainder = left % right;
+        steps.push({ left, right, remainder });
+        left = right;
+        right = remainder;
+      }
+      return { d: left, steps };
+    }
+
+    function buildEvents(moves) {
+      const enriched = moves.map((move, index) => {
+        const a = Math.abs(move.A);
+        const b = Math.abs(move.B);
+        const gcd = gcdSteps(a, b);
+        return { ...move, index, a, b, d: gcd.d, gcdSteps: gcd.steps, counted: gcd.d > 1 };
+      });
+      const events = [];
+      let count = 0;
+      events.push({ type: 'init-count', line: 19, moveIndex: null, count, moves: enriched });
+      for (const move of enriched) {
+        events.push({ type: 'select-move', line: 21, moveIndex: move.index, move, count, moves: enriched });
+        events.push({ type: 'abs-a', line: 22, moveIndex: move.index, move, count, moves: enriched });
+        events.push({ type: 'abs-b', line: 23, moveIndex: move.index, move, count, moves: enriched });
+        events.push({ type: 'gcd', line: 25, moveIndex: move.index, move, count, moves: enriched });
+        events.push({ type: 'if-check', line: 27, moveIndex: move.index, move, count, moves: enriched });
+        if (move.counted) {
+          count += 1;
+          events.push({ type: 'increment', line: 28, moveIndex: move.index, move, count, moves: enriched });
+        } else {
+          events.push({ type: 'skip', line: 27, moveIndex: move.index, move, count, moves: enriched });
+        }
+      }
+      events.push({ type: 'done', line: 30, moveIndex: null, count, moves: enriched });
+      return { events, moves: enriched };
+    }
+
+    function escapeHtml(value) {
+      return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+    }
+
+    function renderCode(activeLine) {
+      els.codeBlock.innerHTML = SCRIPT_LINES.map(item => {
+        const active = item.n === activeLine ? ' active' : (item.text === '' ? ' dim' : '');
+        return `<span class="code-line${active}" data-line="${item.n}"><span class="num">${item.text ? item.n : ''}</span><span>${escapeHtml(item.text)}</span></span>`;
+      }).join('');
+      const active = els.codeBlock.querySelector('.code-line.active');
+      if (active) {
+        const top = active.offsetTop;
+        const bottom = top + active.offsetHeight;
+        if (top < els.codeBlock.scrollTop) els.codeBlock.scrollTop = Math.max(0, top - 8);
+        else if (bottom > els.codeBlock.scrollTop + els.codeBlock.clientHeight) els.codeBlock.scrollTop = bottom - els.codeBlock.clientHeight + 8;
+      }
+    }
+
+    function processedThrough(event) {
+      if (event.type === 'done') return state.moves.length - 1;
+      if (typeof event.moveIndex !== 'number') return -1;
+      return ['increment', 'skip'].includes(event.type) ? event.moveIndex : event.moveIndex - 1;
+    }
+
+    function renderRows(event) {
+      const processedIndex = processedThrough(event);
+      els.movesRows.innerHTML = state.moves.map((move, index) => {
+        const active = index === event.moveIndex ? ' active' : '';
+        const processed = index <= processedIndex;
+        const showAbsA = processed || (active && ['abs-a','abs-b','gcd','if-check','increment','skip'].includes(event.type));
+        const showAbsB = processed || (active && ['abs-b','gcd','if-check','increment','skip'].includes(event.type));
+        const showGcd = processed || (active && ['gcd','if-check','increment','skip'].includes(event.type));
+        const showVerdict = processed || (active && ['if-check','increment','skip'].includes(event.type));
+        const verdictClass = move.counted ? 'yes' : 'no';
+        const rowClass = `${active}${processed ? (move.counted ? ' counted' : ' rejected') : ''}`;
+        return `<tr class="${rowClass}"><td class="num">${index + 1}</td><td>${move.A}</td><td>${move.B}</td><td class="${showAbsA ? '' : 'pending'}">${showAbsA ? move.a : '—'}</td><td class="${showAbsB ? '' : 'pending'}">${showAbsB ? move.b : '—'}</td><td class="${showGcd ? '' : 'pending'}">${showGcd ? move.d : '—'}</td><td class="${showVerdict ? verdictClass : 'pending'}">${showVerdict ? (move.counted ? 'так' : 'ні') : '—'}</td></tr>`;
+      }).join('');
+      keepRowVisible(els.movesWrap, event.moveIndex);
+    }
+
+    function keepRowVisible(container, index) {
+      if (index === null || index === undefined || index < 0) return;
+      const rows = container.querySelectorAll('tbody tr');
+      const row = rows[index];
+      if (!row) return;
+      const top = row.offsetTop;
+      const bottom = top + row.offsetHeight;
+      if (top < container.scrollTop) container.scrollTop = Math.max(0, top - 28);
+      else if (bottom > container.scrollTop + container.clientHeight) container.scrollTop = bottom - container.clientHeight + 8;
+    }
+
+    function renderMessage(event) {
+      const move = event.move;
+      if (event.type === 'init-count') {
+        els.message.innerHTML = `Після екстракції маємо список <b>moves</b>. Тепер ставимо <b>count = 0</b>: ще жоден рух не зараховано.`;
+      } else if (event.type === 'select-move') {
+        els.message.innerHTML = `Цикл <b>for A, B in moves</b> взяв рух №<b>${move.index + 1}</b>: <b>A = ${move.A}</b>, <b>B = ${move.B}</b>.`;
+      } else if (event.type === 'abs-a') {
+        els.message.innerHTML = `<b>a = abs(A)</b>. Якщо рух ішов у мінус, знак прибираємо, бо дільнику байдуже напрямок. Тут <b>abs(${move.A}) = ${move.a}</b>.`;
+      } else if (event.type === 'abs-b') {
+        els.message.innerHTML = `<b>b = abs(B)</b>. Для другої координати так само: <b>abs(${move.B}) = ${move.b}</b>.`;
+      } else if (event.type === 'gcd') {
+        els.message.innerHTML = `<b>d = gcd(a, b)</b> шукає найбільше число, яке ділить <b>${move.a}</b> і <b>${move.b}</b> без остачі. Отримали <b>d = ${move.d}</b>.`;
+      } else if (event.type === 'if-check') {
+        const verdict = move.counted ? '<span class="good-text">так, рух підходить</span>' : '<span class="bad">ні, рух не підходить</span>';
+        els.message.innerHTML = `Перевіряємо <b>if d &gt; 1</b>: маємо <b>${move.d} &gt; 1</b>? ${verdict}.`;
+      } else if (event.type === 'increment') {
+        els.message.innerHTML = `<b>count += 1</b>: цей рух має спільний дільник більше за 1, тому лічильник став <b>${event.count}</b>.`;
+      } else if (event.type === 'skip') {
+        els.message.innerHTML = `Рядок <b>count += 1</b> не виконується. <b>d = ${move.d}</b>, тож лічильник лишається <b>${event.count}</b>.`;
+      } else {
+        els.message.innerHTML = `Готово. Остаточна відповідь для <b>${state.name}</b>: <b>${event.count}</b>. Саме це друкує <b>print(count)</b>.`;
+      }
+    }
+
+    function renderFormula(event) {
+      const move = event.move;
+      if (!move) {
+        els.formula.innerHTML = `Формула цього завдання: <code>a = abs(A)</code>, <code>b = abs(B)</code>, <code>d = gcd(a, b)</code>, потім <code>if d &gt; 1</code>.`;
+      } else if (event.type === 'select-move') {
+        els.formula.innerHTML = `<code>A = ${move.A}</code>, <code>B = ${move.B}</code><br>Це ще сирий рух з файлу.`;
+      } else if (event.type === 'abs-a' || event.type === 'abs-b') {
+        els.formula.innerHTML = `<code>a = abs(${move.A}) = ${move.a}</code><br><code>b = abs(${move.B}) = ${event.type === 'abs-a' ? '?' : move.b}</code>`;
+      } else if (event.type === 'gcd') {
+        els.formula.innerHTML = `<code>d = gcd(${move.a}, ${move.b}) = ${move.d}</code><br>Дивись таблицю остач нижче: коли остача стає 0, останній ненульовий дільник і є gcd.`;
+      } else if (event.type === 'if-check' || event.type === 'increment' || event.type === 'skip') {
+        els.formula.innerHTML = `<code>${move.d} &gt; 1</code> -> <b>${move.counted ? 'True' : 'False'}</b><br>${move.counted ? 'Рух зараховується.' : 'Рух пропускається.'}`;
+      } else {
+        els.formula.innerHTML = `<code>print(count)</code> -> <b>${event.count}</b>`;
+      }
+    }
+
+    function renderBadges(event) {
+      const move = event.move;
+      if (event.type === 'done') {
+        els.moveBadge.textContent = 'готово';
+        els.absBadge.textContent = 'усі рухи';
+        els.gcdBadge.textContent = 'пораховано';
+        els.conditionBadge.textContent = `count = ${event.count}`;
+        els.countBadge.textContent = `count = ${event.count}`;
+        els.totalBadge.textContent = `${state.moves.length} / ${state.moves.length}`;
+        return;
+      }
+      const hasA = move && ['abs-a','abs-b','gcd','if-check','increment','skip'].includes(event.type);
+      const hasB = move && ['abs-b','gcd','if-check','increment','skip'].includes(event.type);
+      const hasD = move && ['gcd','if-check','increment','skip'].includes(event.type);
+      els.moveBadge.textContent = move ? `A=${move.A}, B=${move.B}` : 'A=?, B=?';
+      els.absBadge.textContent = move ? `a=${hasA ? move.a : '?'}, b=${hasB ? move.b : '?'}` : 'a=?, b=?';
+      els.gcdBadge.textContent = hasD ? `d=${move.d}` : 'd=?';
+      els.conditionBadge.textContent = move && ['if-check','increment','skip'].includes(event.type) ? `${move.d} > 1 = ${move.counted ? 'True' : 'False'}` : 'd > 1?';
+      els.countBadge.textContent = `count = ${event.count}`;
+      els.totalBadge.textContent = event.moveIndex === null || event.moveIndex === undefined ? `0 / ${state.moves.length}` : `${event.moveIndex + 1} / ${state.moves.length}`;
+    }
+
+    function renderEuclid(event) {
+      const move = event.move;
+      if (!move || !['gcd','if-check','increment','skip'].includes(event.type)) {
+        els.gcdMeta.textContent = 'gcd з’явиться на рядку 25';
+        els.euclidRows.innerHTML = '<tr><td colspan="2">Поки що gcd не рахуємо.</td></tr>';
+        els.decision.className = 'decision';
+        els.decision.innerHTML = '<div class="big">?</div><div class="verdict">чекаємо на gcd</div><div class="hint">Спочатку треба отримати a і b.</div>';
+        return;
+      }
+      els.gcdMeta.textContent = `gcd(${move.a}, ${move.b}) = ${move.d}`;
+      els.euclidRows.innerHTML = move.gcdSteps.map((step, index) => {
+        if (step.left === 0 && step.right === 0) return `<tr><td>${index + 1}</td><td>gcd(0, 0) у цій задачі не очікуємо</td></tr>`;
+        if (step.left === 0 || step.right === 0) return `<tr><td>${index + 1}</td><td>одне число 0, тому gcd = ${move.d}</td></tr>`;
+        return `<tr><td>${index + 1}</td><td>${step.left} % ${step.right} = ${step.remainder}</td></tr>`;
+      }).join('');
+      els.decision.className = `decision ${move.counted ? 'accept' : 'reject'}`;
+      els.decision.innerHTML = `<div class="big">d = ${move.d}</div><div class="verdict">${move.counted ? 'зараховуємо' : 'не рахуємо'}</div><div class="hint">${move.counted ? 'Бо d більше за 1.' : 'Бо d не більше за 1.'}</div>`;
+    }
+
+    function renderPhase(event) {
+      [els.phaseSelect, els.phaseAbs, els.phaseGcd, els.phaseCount].forEach(el => el.classList.remove('active'));
+      if (event.type === 'select-move') els.phaseSelect.classList.add('active');
+      else if (event.type === 'abs-a' || event.type === 'abs-b') els.phaseAbs.classList.add('active');
+      else if (event.type === 'gcd') els.phaseGcd.classList.add('active');
+      else if (['if-check','increment','skip'].includes(event.type)) els.phaseCount.classList.add('active');
+    }
+
+    function renderActiveBadges(event) {
+      const badges = [els.moveBadge, els.absBadge, els.gcdBadge, els.conditionBadge, els.countBadge, els.totalBadge]
+        .map(el => el.closest('.badge'));
+      badges.forEach(el => el.classList.remove('active'));
+      if (event.type === 'select-move') els.moveBadge.closest('.badge').classList.add('active');
+      else if (event.type === 'abs-a' || event.type === 'abs-b') els.absBadge.closest('.badge').classList.add('active');
+      else if (event.type === 'gcd') els.gcdBadge.closest('.badge').classList.add('active');
+      else if (event.type === 'if-check' || event.type === 'skip') els.conditionBadge.closest('.badge').classList.add('active');
+      else if (event.type === 'increment' || event.type === 'done') els.countBadge.closest('.badge').classList.add('active');
+      else els.totalBadge.closest('.badge').classList.add('active');
+    }
+
+    function renderProgress() {
+      const pct = state.events.length <= 1 ? 0 : (state.index / (state.events.length - 1)) * 100;
+      els.progressFill.style.width = `${pct}%`;
+      const event = state.events[state.index] || state.events[0];
+      els.stepInfo.textContent = `${state.name} · крок ${state.index + 1} / ${state.events.length} · count: ${event.count}`;
+    }
+
+    function render() {
+      const event = state.events[state.index] || state.events[0];
+      renderCode(event.line);
+      renderRows(event);
+      renderMessage(event);
+      renderFormula(event);
+      renderBadges(event);
+      renderEuclid(event);
+      renderPhase(event);
+      renderActiveBadges(event);
+      renderProgress();
+    }
+
+    function setDataset(key, rawText, name) {
+      stop();
+      const parsedMoves = parseMoves(rawText);
+      const built = buildEvents(parsedMoves);
+      state.key = key;
+      state.name = name;
+      state.moves = built.moves;
+      state.events = built.events;
+      state.index = 0;
+      render();
+    }
+
+    function step(delta) {
+      state.index = Math.max(0, Math.min(state.events.length - 1, state.index + delta));
+      render();
+    }
+
+    function stop() {
+      state.playing = false;
+      if (state.timer) clearInterval(state.timer);
+      state.timer = null;
+      els.playBtn.textContent = '▶ Авто';
+    }
+
+    function play() {
+      if (state.playing) {
+        stop();
+        return;
+      }
+      state.playing = true;
+      els.playBtn.textContent = '⏸ Пауза';
+      state.timer = setInterval(() => {
+        if (state.index >= state.events.length - 1) {
+          stop();
+          return;
+        }
+        step(1);
+      }, autoDelayMs);
+    }
+
+    function jumpToNext(typeName, predicate = null) {
+      stop();
+      for (let idx = state.index + 1; idx < state.events.length; idx++) {
+        const event = state.events[idx];
+        if (event.type === typeName && (!predicate || predicate(event))) {
+          state.index = idx;
+          render();
+          return;
+        }
+      }
+      state.index = state.events.length - 1;
+      render();
+    }
+
+    function jumpToCountedStart() {
+      stop();
+      const current = state.events[state.index] || state.events[0];
+      const currentMoveIndex = typeof current.moveIndex === 'number' ? current.moveIndex : -1;
+      for (let idx = state.index + 1; idx < state.events.length; idx++) {
+        const event = state.events[idx];
+        if (event.type === 'select-move' && event.move?.counted && event.moveIndex > currentMoveIndex) {
+          state.index = idx;
+          render();
+          return;
+        }
+      }
+      state.index = state.events.length - 1;
+      render();
+    }
+
+    els.datasetSelect.addEventListener('change', () => {
+      const key = els.datasetSelect.value;
+      setDataset(key, RAW_DATASETS[key], key === 'example' ? 'dron_przyklad.txt' : 'dron.txt');
+    });
+    els.fileInput.addEventListener('change', async () => {
+      const file = els.fileInput.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        setDataset('custom', text, file.name);
+      } catch (err) {
+        alert(err.message || String(err));
+      } finally {
+        els.fileInput.value = '';
+      }
+    });
+    els.resetBtn.addEventListener('click', () => { stop(); state.index = 0; render(); });
+    els.prevBtn.addEventListener('click', () => { stop(); step(-1); });
+    els.nextBtn.addEventListener('click', () => { stop(); step(1); });
+    els.playBtn.addEventListener('click', play);
+    els.nextMoveBtn.addEventListener('click', () => jumpToNext('select-move'));
+    els.nextCountedBtn.addEventListener('click', jumpToCountedStart);
+    els.finishBtn.addEventListener('click', () => { stop(); state.index = state.events.length - 1; render(); });
+
+    setDataset('example', RAW_DATASETS.example, 'dron_przyklad.txt');
+  </script>
+</body>
+</html>
