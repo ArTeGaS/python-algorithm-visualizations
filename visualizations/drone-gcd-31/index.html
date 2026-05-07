@@ -614,6 +614,13 @@
 
     function renderEuclid(event) {
       const move = event.move;
+      if (event.type === 'done') {
+        els.gcdMeta.textContent = 'усі gcd-перевірки завершено';
+        els.euclidRows.innerHTML = `<tr><td colspan="2">Фінальна відповідь: <b>count = ${event.count}</b>.</td></tr>`;
+        els.decision.className = 'decision accept';
+        els.decision.innerHTML = `<div class="big">${event.count}</div><div class="verdict">готова відповідь</div><div class="hint">Саме це значення друкує print(count).</div>`;
+        return;
+      }
       if (!move || !['gcd','if-check','increment','skip'].includes(event.type)) {
         els.gcdMeta.textContent = 'gcd з’явиться на рядку 25';
         els.euclidRows.innerHTML = '<tr><td colspan="2">Поки що gcd не рахуємо.</td></tr>';
